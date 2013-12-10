@@ -6,6 +6,10 @@
 > * Better separation of concerns
 > * Separate the presentation layer and business layer from the traditional content layer
 
+## Examples
+
+[http://codepen.io/dexteryy/pen/niuCG](http://codepen.io/dexteryy/pen/niuCG)
+
 ## Usage
 
 ### AMD and OzJS
@@ -29,10 +33,6 @@ Or [download directly from Github](https://github.com/dexteryy/DarkDOM/blob/mast
 * [mo/lang/es5](https://github.com/dexteryy/mo)
 * [mo/lang/mix](https://github.com/dexteryy/mo)
 * [dollar](https://github.com/dexteryy/DollarJS) (or other jQuery-compatible library + [dollar/jquery](https://github.com/dexteryy/DollarJS/blob/master/dollar/jquery.js))  
-
-## Examples
-
-[http://codepen.io/dexteryy/pen/niuCG]()
 
 ## API and usage
 
