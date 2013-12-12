@@ -36,6 +36,7 @@ var _defaults = {
     _to_string = Object.prototype.toString,
     _matches_selector = $.find.matchesSelector,
     RE_EVENT_SEL = /(\S+)\s*(.*)/,
+    RE_HTMLTAG = /^\s*<(\w+|!)[^>]*>/,
     BRIGHT_ID = 'bright-root-id',
     ID_PREFIX = '_brightRoot';
 
@@ -96,11 +97,15 @@ DarkDOM.prototype = {
     },
 
     contain: function(name, component, opt){
-        opt = opt || {};
-        if (opt.content) {
-            this._contents[name] = true;
+        if (typeof name === 'object') {
+            opt = component;
         }
-        this._components[name] = component; 
+        opt = opt || {};
+        var dict = kv_dict(name, component);
+        if (opt.content) {
+            _.mix(this._contents, dict);
+        }
+        _.mix(this._components, dict);
         return this;
     },
 
@@ -368,7 +373,11 @@ DarkGuard.prototype = {
     },
 
     createRoot: function(data){
-        var bright_root = $(this.template(data));
+        var html = this.template(data);
+        if (!RE_HTMLTAG.test(html)) {
+            return html;
+        }
+        var bright_root = $(html);
         bright_root.attr(this._attrs.autorender, 'true');
         bright_root.attr('id', data.id);
         this.registerEvents(bright_root);
@@ -404,7 +413,7 @@ DarkGuard.prototype = {
             changes.root.remove();
             return re;
         }
-        if (changes.root) {
+        if (changes.root[0]) {
             this.createRoot(changes.data).replaceAll(changes.root);
             return re;
         }
@@ -644,7 +653,7 @@ function trigger_update(bright_id, data, changes){
     if (guard) {
         re = guard.triggerUpdate(_.mix(changes, {
             data: data,
-            root: bright_root[0] && bright_root,
+            root: bright_root,
             rootId: bright_id
         }));
     } else if (!data) {
@@ -758,7 +767,10 @@ function render_data(data){
     if (!data.component) {
         data = render_root(data);
     }
-    return guard.createRoot(data)[0].outerHTML;
+    var root = guard.createRoot(data);
+    return typeof root === 'string' 
+        ? root
+        : root[0].outerHTML;
 }
 
 function read_attr(target, getter){
