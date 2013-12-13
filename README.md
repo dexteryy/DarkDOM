@@ -36,7 +36,71 @@ Or [download directly from Github](https://github.com/dexteryy/DarkDOM/blob/mast
 
 ## API and usage
 
-Comming soon...
+### For UI: Component API
+
+```javascript
+var darkdom = require('darkdom');
+var component = darkdom(options); // see component.set(options)
+```
+
+* `component.set(options)` -- 
+    * options --
+        * `unique: false` -- 
+        * `enableSource: false` --
+        * `render: function(data){ return '<...>...</...>'; }` -- 
+            * `data.state`
+            * `data.content` 
+            * `data.component`
+            * `data.context`
+* `component.bond(stateName, attrName)` --
+* `component.bond(stateName, function(){ return stateValue; })` --
+* `component.bond({ stateName: attrName, ... })` --
+* `component.contain(childComponentName, otherComponent)` --
+* `component.contain({ childComponentName: otherComponent, ... })` --
+* `component.forward('eventType selector', eventName)` --
+* `component.response(updateEvent, function(changes){ ...; return resolved; })` --
+    * updateEvent -- "state:name", "component:name", "content", "remove"...
+    * changes --
+    * resolved -- 
+* `component.createGuard()` --
+
+### For Spec: Guard API
+
+```javascript
+var guard = component.createGuard();
+```
+
+* `guard.bond()` -- see `component.bond`
+* `guard.component(childComponentName, function(childGuard){ /*spec*/  })` --
+* `guard.component({ childComponentName: spec, ... })` --
+* `guard.forward(eventName, 'eventType selector')` --
+* `guard.forward(eventName, handler)` --
+* `guard.source()` --
+* `guard.watch(selector)` --
+* `guard.watch(element)` --
+* `guard.mount()` --
+* `guard.unmount()` --
+* `guard.update()` --
+* `guard.render()` --
+* `guard.createRoot()` --
+* `guard.createSource()` --
+
+### For Application: DOM API
+
+```javascript
+var root = $(selector)[0];
+guard.watch(root);
+```
+
+* `root.mountDarkDOM()` --
+* `root.unmountDarkDOM()` --
+* `root.updateDarkDOM()` --
+* `root.feedDarkDOM(sourceData)` --
+* `root.feedDarkDOM(function(sourceData){...})` --
+* `root.responseDarkDOM(updateEvent, function(changes){...})` -- see `component.response`
+
+More coming soon...
+
 
 ## More References
 
