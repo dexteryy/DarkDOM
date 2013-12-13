@@ -296,10 +296,12 @@ DarkGuard.prototype = {
             }
         }, this);
         data.componentData = re;
-        data.contentData = this._scanContents(target);
+        data.contentData = this._scanContents(target, {
+            hasNoComponents: !Object.keys(this._config.contents).length
+        });
     },
 
-    _scanContents: scan_content,
+    _scanContents: scan_contents,
 
     renderBuffer: function(){
         this._buffer.forEach(function(data){
@@ -487,39 +489,47 @@ function init_plugins($){
     }, $.fn);
 }
 
-function scan_content(target){
-    var data = {
-        index: {},
-        text: ''
-    };
+function scan_contents(target, opt){
+    var data = { index: {}, text: '' };
     if (!target) {
         return data;
     }
-    target.contents().forEach(content_spider, data);
+    opt = opt || {};
+    opt.data = data;
+    target.contents().forEach(content_spider, opt);
     return data;
 }
 
 function content_spider(content){
+    var data = this.data;
     content = $(content);
-    if (content[0].nodeType === 1) {
-        var mark = content[0].isRenderedDarkDOM,
-            buffer_id = content.attr(BRIGHT_ID),
-            buffer = _content_buffer[buffer_id];
-        delete _content_buffer[buffer_id];
-        if (buffer) {
-            this.index[buffer_id] = buffer;
-            this.text += '{{' + BRIGHT_ID + '=' + buffer_id + '}}';
-        } else if (!mark) {
-            var childs_data = scan_content(content);
-            this.text += content.clone()
-                .html(childs_data.text)[0].outerHTML || '';
-            _.mix(this.index, childs_data.index);
+    if (content[0].nodeType !== 1) {
+        if (content[0].nodeType === 3) {
+            content = content.text();
+            if (/\S/.test(content)) {
+                data.text += content;
+            }
         }
-    } else if (content[0].nodeType === 3) {
-        content = content.text();
-        if (/\S/.test(content)) {
-            this.text += content;
+        return;
+    }
+    var mark = content[0].isRenderedDarkDOM;
+    if (this.hasNoComponents) {
+        if (!mark) {
+            data.text += content[0].outerHTML || '';
         }
+        return;
+    }
+    var buffer_id = content.attr(BRIGHT_ID),
+        buffer = _content_buffer[buffer_id];
+    delete _content_buffer[buffer_id];
+    if (buffer) {
+        data.index[buffer_id] = buffer;
+        data.text += '{{' + BRIGHT_ID + '=' + buffer_id + '}}';
+    } else if (!mark) {
+        var childs_data = scan_contents(content);
+        data.text += content.clone()
+            .html(childs_data.text)[0].outerHTML || '';
+        _.mix(data.index, childs_data.index);
     }
 }
 
@@ -574,7 +584,7 @@ function compare_model(origin, data){
     }
     if (compare_contents(
         origin.contentData 
-            || (origin.contentData = scan_content()), 
+            || (origin.contentData = scan_contents()), 
         data.contentData
     )) {
         abort = trigger_update(data.id, data, {
@@ -690,7 +700,7 @@ function merge_source(data, source_data, context){
     var source_content = source_data.contentData;
     if (source_content) {
         var content = data.contentData 
-            || (data.contentData = scan_content());
+            || (data.contentData = scan_contents());
         if (!content.text) {
             content.text = source_content.text; 
             _.mix(content.index, source_content.index);
