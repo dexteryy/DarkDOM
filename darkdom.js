@@ -45,10 +45,17 @@ var dom_ext = {
 
     mountDarkDOM: function(){
         var me = $(this),
-            bright_id = me.attr(BRIGHT_ID),
-            guard = _guards[bright_id];
+            guard = _guards[me.attr(BRIGHT_ID)];
         if (guard) {
             guard.mountRoot(me);
+        }
+    },
+
+    unmountDarkDOM: function(){
+        var me = $(this),
+            guard = _guards[me.attr(BRIGHT_ID)];
+        if (guard) {
+            guard.unmountRoot(me);
         }
     },
 
@@ -195,23 +202,22 @@ DarkGuard.prototype = {
     },
 
     mount: function(){
-        this._darkRoots.forEach(function(target){
-            this.mountRoot(target);
-        }, this);
+        this._darkRoots.forEach(this.mountRoot, this);
+        return this;
+    },
+
+    unmount: function(){
+        this._darkRoots.forEach(this.unmountRoot, this);
         return this;
     },
 
     buffer: function(){
-        this._darkRoots.forEach(function(target){
-            this.bufferRoot(target);
-        }, this);
+        this._darkRoots.forEach(this.bufferRoot, this);
         return this;
     },
 
     update: function(){
-        this._darkRoots.forEach(function(target){
-            this.updateRoot(target);
-        }, this);
+        this._darkRoots.forEach(this.updateRoot, this);
         return this;
     },
 
@@ -241,6 +247,12 @@ DarkGuard.prototype = {
         target.trigger('darkdom:mounted')
             .trigger('darkdom:updated');
         return this;
+    },
+
+    unmountRoot: function(target){
+        var bright_id = target.attr(BRIGHT_ID);
+        $('#' + bright_id).remove();
+        delete _darkdata[bright_id];
     },
 
     bufferRoot: function(target){
