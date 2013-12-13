@@ -43,6 +43,15 @@ var _defaults = {
 
 var dom_ext = {
 
+    renderDarkDOM: function(){
+        var me = $(this),
+            bright_id = me.attr(BRIGHT_ID),
+            guard = _guards[bright_id];
+        if (guard) {
+            guard.renderRoot(me);
+        }
+    },
+
     updateDarkDOM: function(){
         update_target(this);
         exports.DarkGuard.gc();
@@ -59,7 +68,7 @@ var dom_ext = {
         }
     },
 
-    observeDarkDOM: function(subject, handler){
+    responseDarkDOM: function(subject, handler){
         var target = $(this),
             bright_id = target.attr(BRIGHT_ID),
             updaters = _updaters[bright_id];
@@ -115,7 +124,7 @@ DarkDOM.prototype = {
         return this;
     },
 
-    observe: function(subject, handler){
+    response: function(subject, handler){
         this._updaters[subject] = handler;
         return this;
     },
