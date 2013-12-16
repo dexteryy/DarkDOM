@@ -20,6 +20,7 @@ define([
 var _defaults = {
         unique: false,
         enableSource: false,
+        entireAsContent: false,
         render: false
     },
     _default_attrs = {
@@ -318,6 +319,7 @@ DarkGuard.prototype = {
         }, this);
         data.componentData = re;
         data.contentData = this._scanContents(target, {
+            entireAsContent: this._options.entireAsContent,
             hasNoComponents: !Object.keys(this._config.contents).length
         });
     },
@@ -511,13 +513,22 @@ function init_plugins($){
 }
 
 function scan_contents(target, opt){
-    var data = { index: {}, text: '' };
+    opt = opt || {};
+    var data = { 
+        index: {},
+        text: '',
+        _hasOuter: opt.entireAsContent
+    };
     if (!target) {
         return data;
     }
-    opt = opt || {};
     opt.data = data;
-    target.contents().forEach(content_spider, opt);
+    if (data._hasOuter) {
+        content_spider.call(opt, 
+            target.clone().removeAttr(BRIGHT_ID));
+    } else {
+        target.contents().forEach(content_spider, opt);
+    }
     return data;
 }
 
@@ -718,14 +729,14 @@ function merge_source(data, source_data, context){
         }
     }, data.state || (data.state = {}));
     // @note
+    var content = data.contentData 
+        || (data.contentData = scan_contents());
     var source_content = source_data.contentData;
-    if (source_content) {
-        var content = data.contentData 
-            || (data.contentData = scan_contents());
-        if (!content.text) {
-            content.text = source_content.text; 
-            _.mix(content.index, source_content.index);
-        }
+    if (source_content && source_content.text
+            && (!content.text 
+                || source_content._hasOuter)) {
+        content.text = source_content.text; 
+        _.mix(content.index, source_content.index);
     }
     // @note
     if (!data.componentData) {
@@ -757,6 +768,9 @@ function fix_userdata(data, guard){
         _.each(guard._config.components, 
             fix_userdata_component, 
             data.componentData);
+    }
+    if (data.contentData) {
+        data.contentData._hasOuter = guard._options.entireAsContent;
     }
 }
 

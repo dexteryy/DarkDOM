@@ -47,6 +47,7 @@ var component = darkdom(options); // see component.set(options)
     * options --
         * `unique: false` -- 
         * `enableSource: false` --
+        * `entireAsContent: false` --
         * `render: function(data){ return '<...>...</...>'; }` -- 
             * `data.state`
             * `data.content` 
