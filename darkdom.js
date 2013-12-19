@@ -32,11 +32,12 @@ var _defaults = {
     _darkdata = {},
     _guards = {},
     _updaters = {},
-    _uuid = 0,
+    _tm = 0,
+    _tuid = 0,
     _to_string = Object.prototype.toString,
     _matches_selector = $.find.matchesSelector,
     BRIGHT_ID = 'bright-root-id',
-    ID_PREFIX = '_brightRoot',
+    ID_PREFIX = '_brightRoot_',
     RE_CONTENT_COM = new RegExp('\\{\\{' 
         + BRIGHT_ID + '=(\\w+)\\}\\}', 'g'),
     RE_EVENT_SEL = /(\S+)\s*(.*)/,
@@ -137,6 +138,10 @@ DarkDOM.prototype = {
         return this;
     },
 
+    component: function(name){
+        return this._components[name];
+    },
+
     createGuard: function(opt){
         return new exports.DarkGuard(_.mix({
             attrs: this._attrs,
@@ -157,10 +162,7 @@ function DarkGuard(opt){
     this._darkRoots = [];
     this._specs = {};
     this._buffer = [];
-    this._componentGuards = {};
     this._events = {};
-    this._contextData = null;
-    this._contextTarget = null;
     this._sourceGuard = null;
     if (this._options.enableSource) {
         this.createSource(opt);
@@ -192,13 +194,22 @@ DarkGuard.prototype = {
     },
 
     watch: function(targets){
-        targets = $(targets, this._contextTarget);
+        if (this._darkRoots.length > 0) {
+            return this;
+        }
+        targets = $(targets, this._config.contextTarget);
         if (this._options.unique) {
             targets = targets.eq(0);
         }
-        targets.forEach(function(target){
-            this.registerRoot($(target));
-        }, this);
+        targets.forEach(this.registerRoot, this);
+        return this;
+    },
+
+    unwatch: function(targets){
+        targets = targets 
+            ? $(targets, this._config.contextTarget) 
+            : this._darkRoots;
+        targets.forEach(this.unregisterRoot, this);
         return this;
     },
 
@@ -223,9 +234,10 @@ DarkGuard.prototype = {
     },
 
     registerRoot: function(target){
+        target = $(target);
         var bright_id = target.attr(BRIGHT_ID);
         if (!bright_id) {
-            bright_id = ID_PREFIX + (++_uuid);
+            bright_id = uuid();
             if (!this._config.isSource) {
                 target.attr(BRIGHT_ID, bright_id);
             }
@@ -234,51 +246,72 @@ DarkGuard.prototype = {
         _.each(dom_ext, function(method, name){
             this[name] = method;
         }, target[0]);
-        this._darkRoots.push(target);
+        this._darkRoots.push(target[0]);
         return bright_id;
     },
 
+    unregisterRoot: function(target){
+        target = $(target);
+        var bright_id = target.attr(BRIGHT_ID);
+        if (this !== _guards[bright_id]) {
+            return;
+        }
+        target.removeAttr(BRIGHT_ID);
+        unregister(bright_id);
+        _.each(dom_ext, function(method, name){
+            delete this[name];
+        }, target[0]);
+        var i = this._darkRoots.indexOf(target[0]);
+        if (i !== -1) {
+            this._darkRoots.splice(i, 1);
+        }
+    },
+
     mountRoot: function(target){
+        target = $(target);
         if (target.attr(this._attrs.autorender)
                 || target[0].isMountedDarkDOM) {
             return this;
         }
         var data = render_root(this.scanRoot(target));
         target.hide().before(this.createRoot(data));
+        target[0].isMountedDarkDOM = true;
         target.trigger('darkdom:mounted')
             .trigger('darkdom:updated');
         return this;
     },
 
     unmountRoot: function(target){
+        target = $(target);
         var bright_id = target.attr(BRIGHT_ID);
         $('#' + bright_id).remove();
         delete _darkdata[bright_id];
     },
 
     bufferRoot: function(target){
+        target = $(target);
         if (target.attr(this._attrs.autorender)) {
             return this;
         }
         var data = this.scanRoot(target); 
         this._bufferData(data);
+        target[0].isMountedDarkDOM = true;
         return this;
     },
 
     updateRoot: function(target){
-        exports.DarkGuard.update(target);
+        $(target).updateDarkDOM();
         return this;
     },
 
     scanRoot: function(target){
         var is_source = this._config.isSource;
         var bright_id = this.registerRoot(target);
-        target[0].isMountedDarkDOM = true;
         var data = {
             id: bright_id,
         };
         if (!is_source) {
-            data.context = this._contextData;
+            data.context = this._config.contextData;
         }
         data.state = {};
         _.each(this._attrs, function(getter, name){
@@ -295,15 +328,11 @@ DarkGuard.prototype = {
     _scanComponents: function(data, target){
         var re = {};
         _.each(this._config.components, function(component, name){
-            var guard = this._componentGuards[name];
-            if (!guard) {
-                guard = component.createGuard({
-                    isSource: this._config.isSource
-                });
-                this._componentGuards[name] = guard;
-            }
-            guard._changeContext(data, target);
-            guard._resetWatch();
+            var guard = component.createGuard({
+                contextData: data,
+                contextTarget: target,
+                isSource: this._config.isSource
+            });
             var spec = this._specs[name];
             if (typeof spec === 'string') {
                 guard.watch(spec);
@@ -356,18 +385,6 @@ DarkGuard.prototype = {
     _resetBuffer: function(){
         this._buffer.length = 0;
         return this;
-    },
-
-    _resetWatch: function(){
-        this._darkRoots.length = 0;
-    },
-
-    _changeContext: function(data, target){
-        this._contextData = data;
-        this._contextTarget = target;
-        if (this._sourceGuard) {
-            this._sourceGuard._changeContext(data);
-        }
     },
 
     createRoot: function(data){
@@ -452,6 +469,7 @@ DarkGuard.prototype = {
     createSource: function(opt){
         this._sourceGuard = new exports.DarkGuard(_.merge({
             isSource: true,
+            contextTarget: null,
             options: _.merge({
                 enableSource: false 
             }, opt.options)
@@ -491,10 +509,7 @@ DarkGuard.gc = function(){
     }, current);
     Object.keys(_guards).forEach(function(bright_id){
         if (!this[bright_id]) {
-            delete _guards[bright_id];
-            delete _darkdata[bright_id];
-            delete _sourcedata[bright_id];
-            delete _updaters[bright_id];
+            unregister(bright_id);
         }
     }, current);
 };
@@ -510,6 +525,22 @@ function init_plugins($){
             return this;
         };
     }, $.fn);
+}
+
+function uuid(){
+    var now = +new Date();
+    if (now > _tm) {
+        _tm = now;
+        _tuid = 0;
+    }
+    return ID_PREFIX + _tm + '_' + (++_tuid);
+}
+
+function unregister(bright_id){
+    delete _guards[bright_id];
+    delete _darkdata[bright_id];
+    delete _sourcedata[bright_id];
+    delete _updaters[bright_id];
 }
 
 function scan_contents(target, opt){
@@ -761,7 +792,7 @@ function merge_source_components(dataset, name){
 
 function fix_userdata(data, guard){
     if (!data.id) {
-        data.id = ID_PREFIX + (++_uuid);
+        data.id = uuid();
         _guards[data.id] = guard;
     }
     if (data.componentData) {

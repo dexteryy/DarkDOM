@@ -63,6 +63,7 @@ var component = darkdom(options); // see component.set(options)
     * updateEvent -- "state:name", "component:name", "content", "remove"...
     * changes --
     * resolved -- 
+* `component.component(childComponentName)` --
 * `component.createGuard()` --
 
 ### For Spec: Guard API
@@ -79,6 +80,9 @@ var guard = component.createGuard();
 * `guard.source()` --
 * `guard.watch(selector)` --
 * `guard.watch(element)` --
+* `guard.unwatch(selector)` --
+* `guard.unwatch(element)` --
+* `guard.unwatch()` --
 * `guard.mount()` --
 * `guard.unmount()` --
 * `guard.update()` --
