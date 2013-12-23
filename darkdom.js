@@ -24,7 +24,6 @@ var _defaults = {
         render: false
     },
     _default_attrs = {
-        autorender: 'autorender',
         source: 'source-selector'
     },
     _content_buffer = {},
@@ -36,10 +35,11 @@ var _defaults = {
     _tuid = 0,
     _to_string = Object.prototype.toString,
     _matches_selector = $.find.matchesSelector,
-    BRIGHT_ID = 'bright-root-id',
+    IS_BRIGHT = 'dd-autogen',
+    MY_BRIGHT = 'dd-connect',
     ID_PREFIX = '_brightRoot_',
     RE_CONTENT_COM = new RegExp('\\{\\{' 
-        + BRIGHT_ID + '=(\\w+)\\}\\}', 'g'),
+        + MY_BRIGHT + '=(\\w+)\\}\\}', 'g'),
     RE_EVENT_SEL = /(\S+)\s*(.*)/,
     RE_HTMLTAG = /^\s*<(\w+|!)[^>]*>/;
 
@@ -47,7 +47,7 @@ var dom_ext = {
 
     mountDarkDOM: function(){
         var me = $(this),
-            guard = _guards[me.attr(BRIGHT_ID)];
+            guard = _guards[me.attr(MY_BRIGHT)];
         if (guard) {
             guard.mountRoot(me);
         }
@@ -55,7 +55,7 @@ var dom_ext = {
 
     unmountDarkDOM: function(){
         var me = $(this),
-            guard = _guards[me.attr(BRIGHT_ID)];
+            guard = _guards[me.attr(MY_BRIGHT)];
         if (guard) {
             guard.unmountRoot(me);
         }
@@ -67,7 +67,7 @@ var dom_ext = {
     },
 
     feedDarkDOM: function(fn){
-        var bright_id = $(this).attr(BRIGHT_ID),
+        var bright_id = $(this).attr(MY_BRIGHT),
             guard = _guards[bright_id];
         if (guard) {
             var user_data = is_function(fn) 
@@ -79,7 +79,7 @@ var dom_ext = {
 
     responseDarkDOM: function(subject, handler){
         var target = $(this),
-            bright_id = target.attr(BRIGHT_ID),
+            bright_id = target.attr(MY_BRIGHT),
             updaters = _updaters[bright_id];
         if (!updaters) {
             updaters = _updaters[bright_id] = {};
@@ -235,11 +235,14 @@ DarkGuard.prototype = {
 
     registerRoot: function(target){
         target = $(target);
-        var bright_id = target.attr(BRIGHT_ID);
+        if (target.attr(IS_BRIGHT)) {
+            return;
+        }
+        var bright_id = target.attr(MY_BRIGHT);
         if (!bright_id) {
             bright_id = uuid();
             if (!this._config.isSource) {
-                target.attr(BRIGHT_ID, bright_id);
+                target.attr(MY_BRIGHT, bright_id);
             }
         }
         _guards[bright_id] = this;
@@ -252,11 +255,11 @@ DarkGuard.prototype = {
 
     unregisterRoot: function(target){
         target = $(target);
-        var bright_id = target.attr(BRIGHT_ID);
+        var bright_id = target.attr(MY_BRIGHT);
         if (this !== _guards[bright_id]) {
             return;
         }
-        target.removeAttr(BRIGHT_ID);
+        target.removeAttr(MY_BRIGHT);
         unregister(bright_id);
         _.each(dom_ext, function(method, name){
             delete this[name];
@@ -269,7 +272,7 @@ DarkGuard.prototype = {
 
     mountRoot: function(target){
         target = $(target);
-        if (target.attr(this._attrs.autorender)
+        if (target.attr(IS_BRIGHT)
                 || target[0].isMountedDarkDOM) {
             return this;
         }
@@ -283,14 +286,14 @@ DarkGuard.prototype = {
 
     unmountRoot: function(target){
         target = $(target);
-        var bright_id = target.attr(BRIGHT_ID);
+        var bright_id = target.attr(MY_BRIGHT);
         $('#' + bright_id).remove();
         delete _darkdata[bright_id];
     },
 
     bufferRoot: function(target){
         target = $(target);
-        if (target.attr(this._attrs.autorender)) {
+        if (target.attr(IS_BRIGHT)) {
             return this;
         }
         var data = this.scanRoot(target); 
@@ -393,7 +396,7 @@ DarkGuard.prototype = {
             return html;
         }
         var bright_root = $(html);
-        bright_root.attr(this._attrs.autorender, 'true');
+        bright_root.attr(IS_BRIGHT, 'true');
         bright_root.attr('id', data.id);
         this.registerEvents(bright_root);
         return bright_root;
@@ -436,7 +439,7 @@ DarkGuard.prototype = {
 
     registerEvents: function(bright_root){
         var self = this;
-        var dark_root = $('[' + BRIGHT_ID + '="' 
+        var dark_root = $('[' + MY_BRIGHT + '="' 
             + bright_root.attr('id') + '"]');
         _.each(this._config.events, function(subject, bright_sel){
             bright_sel = RE_EVENT_SEL.exec(bright_sel);
@@ -504,8 +507,8 @@ DarkGuard.prototype = {
 
 DarkGuard.gc = function(){
     var current = {};
-    $('[' + BRIGHT_ID + ']').forEach(function(target){
-        this[$(target).attr(BRIGHT_ID)] = true;
+    $('[' + MY_BRIGHT + ']').forEach(function(target){
+        this[$(target).attr(MY_BRIGHT)] = true;
     }, current);
     Object.keys(_guards).forEach(function(bright_id){
         if (!this[bright_id]) {
@@ -556,7 +559,7 @@ function scan_contents(target, opt){
     opt.data = data;
     if (data._hasOuter) {
         content_spider.call(opt, 
-            target.clone().removeAttr(BRIGHT_ID));
+            target.clone().removeAttr(MY_BRIGHT));
     } else {
         target.contents().forEach(content_spider, opt);
     }
@@ -582,12 +585,12 @@ function content_spider(content){
         }
         return;
     }
-    var buffer_id = content.attr(BRIGHT_ID),
+    var buffer_id = content.attr(MY_BRIGHT),
         buffer = _content_buffer[buffer_id];
     delete _content_buffer[buffer_id];
     if (buffer) {
         data.index[buffer_id] = buffer;
-        data.text += '{{' + BRIGHT_ID + '=' + buffer_id + '}}';
+        data.text += '{{' + MY_BRIGHT + '=' + buffer_id + '}}';
     } else if (!mark) {
         var childs_data = scan_contents(content);
         data.text += content.clone()
@@ -598,7 +601,7 @@ function content_spider(content){
 
 function update_target(target){
     target = $(target);
-    var bright_id = target.attr(BRIGHT_ID);
+    var bright_id = target.attr(MY_BRIGHT);
     if (!target.parent()[0]) {
         return trigger_update(bright_id, null, {
             type: 'remove'
@@ -734,7 +737,7 @@ function trigger_update(bright_id, data, changes){
         bright_root.remove();
         re = false;
     }
-    var dark_root = $('[' + BRIGHT_ID + '="' + bright_id + '"]');
+    var dark_root = $('[' + MY_BRIGHT + '="' + bright_id + '"]');
     if (!data || changes.type === "remove") {
         dark_root.trigger('darkdom:removed');
     } else if (re === false) {
