@@ -20,6 +20,7 @@ define([
 var _defaults = {
         unique: false,
         enableSource: false,
+        disableScript: false,
         entireAsContent: false,
         render: false
     },
@@ -279,6 +280,7 @@ DarkGuard.prototype = {
         var data = render_root(this.scanRoot(target));
         target.hide().before(this.createRoot(data));
         target[0].isMountedDarkDOM = true;
+        run_script(data);
         target.trigger('darkdom:mounted')
             .trigger('darkdom:updated');
         return this;
@@ -351,8 +353,9 @@ DarkGuard.prototype = {
         }, this);
         data.componentData = re;
         data.contentData = this._scanContents(target, {
+            scriptContext: !this._options.disableScript && target[0],
             entireAsContent: this._options.entireAsContent,
-            hasNoComponents: !Object.keys(this._config.contents).length
+            noComs: !Object.keys(this._config.components).length
         });
     },
 
@@ -549,8 +552,10 @@ function unregister(bright_id){
 function scan_contents(target, opt){
     opt = opt || {};
     var data = { 
-        index: {},
         text: '',
+        _index: {},
+        _script: '',
+        _context: opt.scriptContext,
         _hasOuter: opt.entireAsContent
     };
     if (!target) {
@@ -577,9 +582,16 @@ function content_spider(content){
             }
         }
         return;
+    } else if (data._context
+            && content[0].nodeName === 'SCRIPT'
+            && content.attr('type') === 'text/darkscript') {
+        data._script += content[0].innerHTML;
+        return;
     }
     var mark = content[0].isMountedDarkDOM;
-    if (this.hasNoComponents) {
+    if (this.noComs 
+            && (!this.scriptContext
+                || !content.find('script').length)) {
         if (!mark) {
             data.text += content[0].outerHTML || '';
         }
@@ -589,14 +601,27 @@ function content_spider(content){
         buffer = _content_buffer[buffer_id];
     delete _content_buffer[buffer_id];
     if (buffer) {
-        data.index[buffer_id] = buffer;
+        data._index[buffer_id] = buffer;
         data.text += '{{' + MY_BRIGHT + '=' + buffer_id + '}}';
     } else if (!mark) {
         var childs_data = scan_contents(content);
         data.text += content.clone()
             .html(childs_data.text)[0].outerHTML || '';
-        _.mix(data.index, childs_data.index);
+        _.mix(data._index, childs_data._index);
     }
+}
+
+function run_script(data){
+    if (typeof data !== 'object') {
+        return;
+    }
+    var content = data.contentData || {};
+    if (content._script) {
+        new Function('', content._script)
+            .call(content._context);
+    }
+    _.each(content._index || {}, run_script);
+    _.each(data.componentData || [], run_script);
 }
 
 function update_target(target){
@@ -683,13 +708,13 @@ function compare_contents(origin, data){
         return true;
     }
     var changed;
-    _.each(data.index || {}, function(data, bright_id){
+    _.each(data._index || {}, function(data, bright_id){
         if (!this[bright_id]) {
             changed = true;
             return false;
         }
         compare_model(this[bright_id], data);
-    }, origin.index);
+    }, origin._index);
     return changed || (origin.text !== data.text);
 }
 
@@ -770,7 +795,7 @@ function merge_source(data, source_data, context){
             && (!content.text 
                 || source_content._hasOuter)) {
         content.text = source_content.text; 
-        _.mix(content.index, source_content.index);
+        _.mix(content._index, source_content._index);
     }
     // @note
     if (!data.componentData) {
@@ -836,7 +861,7 @@ function render_root(data){
     var content_data = data.contentData;
     data.content = content_data.text
         .replace(RE_CONTENT_COM, function($0, bright_id){
-            var data = content_data.index[bright_id];
+            var data = content_data._index[bright_id];
             if (data === 'string') {
                 return data;
             }
