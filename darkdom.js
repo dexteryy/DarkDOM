@@ -112,7 +112,7 @@ DarkDOM.prototype = {
     },
 
     bond: function(attr, elem_attr){
-        _.mix(this._attrs, kv_dict(attr, elem_attr));
+        mix_setter(attr, elem_attr, this._attrs);
         return this;
     },
 
@@ -121,16 +121,17 @@ DarkDOM.prototype = {
             opt = component;
         }
         opt = opt || {};
-        var dict = kv_dict(name, component);
+        var dict = mix_setter(name, component, this._components, {
+            execFunc: true
+        });
         if (opt.content) {
             _.mix(this._contents, dict);
         }
-        _.mix(this._components, dict);
         return this;
     },
 
     forward: function(selector, subject){
-        _.mix(this._events, kv_dict(selector, subject));
+        mix_setter(selector, subject, this._events);
         return this;
     },
 
@@ -173,17 +174,17 @@ function DarkGuard(opt){
 DarkGuard.prototype = {
 
     bond: function(attr, elem_attr){
-        _.mix(this._attrs, kv_dict(attr, elem_attr));
+        mix_setter(attr, elem_attr, this._attrs);
         return this;
     },
 
     component: function(name, spec){
-        _.mix(this._specs, kv_dict(name, spec));
+        mix_setter(name, spec, this._specs);
         return this;
     },
 
     forward: function(subject, selector){
-        _.mix(this._events, kv_dict(subject, selector));
+        mix_setter(subject, selector, this._events);
         return this;
     },
 
@@ -899,13 +900,21 @@ function is_function(obj) {
     return _to_string.call(obj) === "[object Function]";
 }
 
-function kv_dict(key, value){
+function mix_setter(key, value, context, opt){
+    opt = opt || {};
     var dict = key;
     if (typeof dict !== 'object') {
         dict = {};
         dict[key] = value;
     }
-    return dict;
+    var re = {};
+    _.each(dict, function(value, key){
+        if (opt.execFunc && is_function(value)) {
+            value = value(this[key]);
+        }
+        this[key] = re[key] = value;
+    }, context);
+    return re;
 }
 
 function exports(opt){

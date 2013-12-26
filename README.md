@@ -57,6 +57,7 @@ var component = darkdom(options); // see component.set(options)
 * `component.bond(stateName, function(){ return stateValue; })` --
 * `component.bond({ stateName: attrName, ... })` --
 * `component.contain(childComponentName, otherComponent)` --
+* `component.contain(childComponentName, function(childComponent){ ...;return childComponent; })` --
 * `component.contain({ childComponentName: otherComponent, ... })` --
 * `component.forward('eventType selector', eventName)` --
 * `component.response(updateEvent, function(changes){ ...; return resolved; })` --
