@@ -278,12 +278,13 @@ DarkGuard.prototype = {
                 || target[0].isMountedDarkDOM) {
             return this;
         }
+        target.trigger('darkdom:willMount');
         var data = render_root(this.scanRoot(target));
         target.hide().before(this.createRoot(data));
         target[0].isMountedDarkDOM = true;
         run_script(data);
-        target.trigger('darkdom:mounted')
-            .trigger('darkdom:updated');
+        target.trigger('darkdom:rendered')
+            .trigger('darkdom:mounted');
         return this;
     },
 
@@ -750,9 +751,10 @@ function trigger_update(bright_id, data, changes){
     if (!bright_id) {
         return;
     }
-    var re;
-    var bright_root = $('#' + bright_id);
-    var guard = _guards[bright_id];
+    var dark_root = $('[' + MY_BRIGHT + '="' + bright_id + '"]');
+    dark_root.trigger('darkdom:willUpdate');
+    var re, bright_root = $('#' + bright_id),
+        guard = _guards[bright_id];
     if (guard) {
         re = guard.triggerUpdate(_.mix(changes, {
             data: data,
@@ -763,12 +765,12 @@ function trigger_update(bright_id, data, changes){
         bright_root.remove();
         re = false;
     }
-    var dark_root = $('[' + MY_BRIGHT + '="' + bright_id + '"]');
     if (!data || changes.type === "remove") {
         dark_root.trigger('darkdom:removed');
     } else if (re === false) {
-        dark_root.trigger('darkdom:updated');
+        dark_root.trigger('darkdom:rendered');
     }
+    dark_root.trigger('darkdom:updated');
     return re;
 }
 

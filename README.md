@@ -36,7 +36,7 @@ Or [download directly from Github](https://github.com/dexteryy/DarkDOM/blob/mast
 
 ## API and usage
 
-### For UI: Component API
+### Component API (For UI)
 
 ```javascript
 var darkdom = require('darkdom');
@@ -67,7 +67,7 @@ var component = darkdom(options); // see component.set(options)
 * `component.component(childComponentName)` --
 * `component.createGuard()` --
 
-### For Spec: Guard API
+### Guard API (For Spec)
 
 ```javascript
 var guard = component.createGuard();
@@ -91,7 +91,7 @@ var guard = component.createGuard();
 * `guard.createRoot()` --
 * `guard.createSource()` --
 
-### For Application: DOM API
+### DOM API (For Application)
 
 ```javascript
 var root = $(selector)[0];
@@ -104,6 +104,14 @@ guard.watch(root);
 * `root.feedDarkDOM(sourceData)` --
 * `root.feedDarkDOM(function(sourceData){...})` --
 * `root.responseDarkDOM(updateEvent, function(changes){...})` -- see `component.response`
+* `root.addEventListener(darkEvent, handler)`
+    * darkEvent --
+        * `darkdom:willMount` --
+        * `darkdom:mounted` --
+        * `darkdom:willUpdate` --
+        * `darkdom:updated` --
+        * `darkdom:rendered` --
+        * `darkdom:removed` --
 
 More coming soon...
 
