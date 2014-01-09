@@ -22,6 +22,7 @@ var _defaults = {
         enableSource: false,
         disableScript: false,
         entireAsContent: false,
+        sourceAsContent: false,
         render: false
     },
     _default_attrs = {
@@ -199,17 +200,14 @@ DarkGuard.prototype = {
         if (this._darkRoots.length > 0) {
             return this;
         }
-        targets = $(targets, this._config.contextTarget);
-        if (this._options.unique) {
-            targets = targets.eq(0);
-        }
-        targets.forEach(this.registerRoot, this);
+        this.selectTargets(targets)
+            .forEach(this.registerRoot, this);
         return this;
     },
 
     unwatch: function(targets){
         targets = targets 
-            ? $(targets, this._config.contextTarget) 
+            ? this.selectTargets(targets)
             : this._darkRoots;
         targets.forEach(this.unregisterRoot, this);
         return this;
@@ -233,6 +231,15 @@ DarkGuard.prototype = {
     update: function(){
         this._darkRoots.forEach(this.updateRoot, this);
         return this;
+    },
+
+    gc: function(bright_id){
+        _.each(this._darkRoots, function(target){
+            if ($(target).attr(MY_BRIGHT) === bright_id) {
+                this.unregisterRoot(target);
+                return false;
+            }
+        }, this);
     },
 
     registerRoot: function(target){
@@ -266,10 +273,7 @@ DarkGuard.prototype = {
         _.each(dom_ext, function(method, name){
             delete this[name];
         }, target[0]);
-        var i = this._darkRoots.indexOf(target[0]);
-        if (i !== -1) {
-            this._darkRoots.splice(i, 1);
-        }
+        clear(this._darkRoots, target[0]);
     },
 
     mountRoot: function(target){
@@ -313,7 +317,9 @@ DarkGuard.prototype = {
 
     scanRoot: function(target){
         var is_source = this._config.isSource;
-        var bright_id = this.registerRoot(target);
+        var bright_id = is_source 
+            ? this.registerRoot(target)
+            : target.attr(MY_BRIGHT);
         var data = {
             id: bright_id,
         };
@@ -326,6 +332,8 @@ DarkGuard.prototype = {
         }, data.state);
         this._scanComponents(data, target);
         if (!is_source
+                && (data.state.source 
+                    || _sourcedata[bright_id])
                 && this._sourceGuard) {
             this._mergeSource(data);
         }
@@ -412,6 +420,14 @@ DarkGuard.prototype = {
             || default_render)(data);
     },
 
+    selectTargets: function(targets){
+        targets = $(targets, this._config.contextTarget);
+        if (this._options.unique) {
+            targets = targets.eq(0);
+        }
+        return targets;
+    },
+
     triggerUpdate: function(changes){
         var handler;
         var subject = changes.type;
@@ -474,11 +490,17 @@ DarkGuard.prototype = {
         });
     },
 
+    isSource: function(){
+        return this._config.isSource;
+    },
+
     createSource: function(opt){
         this._sourceGuard = new exports.DarkGuard(_.merge({
             isSource: true,
             contextTarget: null,
             options: _.merge({
+                entireAsContent: opt.options.sourceAsContent 
+                    || opt.options.entireAsContent,
                 enableSource: false 
             }, opt.options)
         }, opt));
@@ -490,9 +512,11 @@ DarkGuard.prototype = {
             return;
         }
         var guard = this._sourceGuard;
-        guard.watch(selector);
+        var targets = guard.selectTargets(selector);
+        guard.watch(targets);
         guard.buffer();
         var dataset = guard.releaseData();
+        guard.unwatch(targets);
         _sourcedata[bright_id] = dataset;
         return dataset;
     },
@@ -516,7 +540,16 @@ DarkGuard.gc = function(){
         this[$(target).attr(MY_BRIGHT)] = true;
     }, current);
     Object.keys(_guards).forEach(function(bright_id){
-        if (!this[bright_id]) {
+        if (this[bright_id]) {
+            return;
+        }
+        var guard = _guards[bright_id];
+        if (guard) {
+            if (guard.isSource()) {
+                return;
+            }
+            guard.gc(bright_id);
+        } else {
             unregister(bright_id);
         }
     }, current);
@@ -533,6 +566,13 @@ function init_plugins($){
             return this;
         };
     }, $.fn);
+}
+
+function clear(list, target){
+    var i = list.indexOf(target);
+    if (i !== -1) {
+        list.splice(i, 1);
+    }
 }
 
 function uuid(){
@@ -629,7 +669,7 @@ function run_script(data){
 function update_target(target){
     target = $(target);
     var bright_id = target.attr(MY_BRIGHT);
-    if (!target.parent()[0]) {
+    if (!$.contains(document.body, target[0])) {
         return trigger_update(bright_id, null, {
             type: 'remove'
         });
@@ -796,7 +836,7 @@ function merge_source(data, source_data, context){
     var source_content = source_data.contentData;
     if (source_content && source_content.text
             && (!content.text 
-                || source_content._hasOuter)) {
+                || content._hasOuter)) {
         content.text = source_content.text; 
         _.mix(content._index, source_content._index);
     }
@@ -832,7 +872,8 @@ function fix_userdata(data, guard){
             data.componentData);
     }
     if (data.contentData) {
-        data.contentData._hasOuter = guard._options.entireAsContent;
+        data.contentData._hasOuter = guard._options.sourceAsContent 
+            || guard._options.entireAsContent;
     }
 }
 
