@@ -36,6 +36,7 @@ var _defaults = {
     _tm = 0,
     _tuid = 0,
     _to_string = Object.prototype.toString,
+    _is_array = Array.isArray,
     _matches_selector = $.find.matchesSelector,
     IS_BRIGHT = 'dd-autogen',
     MY_BRIGHT = 'dd-connect',
@@ -64,8 +65,14 @@ var dom_ext = {
     },
 
     updateDarkDOM: function(){
-        update_target(this);
+        update_target(this, {});
         exports.DarkGuard.gc();
+    },
+
+    updateDarkDOMStates: function(){
+        update_target(this, {
+            onlyStates: true
+        });
     },
 
     feedDarkDOM: function(fn){
@@ -197,9 +204,6 @@ DarkGuard.prototype = {
     },
 
     watch: function(targets){
-        if (this._darkRoots.length > 0) {
-            return this;
-        }
         this.selectTargets(targets)
             .forEach(this.registerRoot, this);
         return this;
@@ -315,7 +319,8 @@ DarkGuard.prototype = {
         return this;
     },
 
-    scanRoot: function(target){
+    scanRoot: function(target, opt){
+        opt = opt || {};
         var is_source = this._config.isSource;
         var bright_id = is_source 
             ? this.registerRoot(target)
@@ -330,12 +335,14 @@ DarkGuard.prototype = {
         _.each(this._attrs, function(getter, name){
             this[name] = read_state(target, getter);
         }, data.state);
-        this._scanComponents(data, target);
+        if (!opt.onlyStates) {
+            this._scanComponents(data, target);
+        }
         if (!is_source
                 && (data.state.source 
                     || _sourcedata[bright_id])
                 && this._sourceGuard) {
-            this._mergeSource(data);
+            this._mergeSource(data, opt);
         }
         return data;
     },
@@ -521,13 +528,18 @@ DarkGuard.prototype = {
         return dataset;
     },
 
-    _mergeSource: function(data){
+    _mergeSource: function(data, opt){
         var source_dataset = _sourcedata[data.id];
         if (!source_dataset) {
             source_dataset = this.scanSource(data.id, 
                 data.state.source);
         }
-        if (source_dataset) {
+        if (!source_dataset) {
+            return;
+        }
+        if (opt.onlyStates) {
+            merge_source_states(data, source_dataset, data.context);
+        } else {
             merge_source(data, source_dataset, data.context);
         }
     }
@@ -540,7 +552,7 @@ DarkGuard.gc = function(){
         this[$(target).attr(MY_BRIGHT)] = true;
     }, current);
     Object.keys(_guards).forEach(function(bright_id){
-        if (this[bright_id]) {
+        if (this[bright_id] || $('#' + bright_id)[0]) {
             return;
         }
         var guard = _guards[bright_id];
@@ -666,24 +678,36 @@ function run_script(data){
     _.each(data.componentData || [], run_script);
 }
 
-function update_target(target){
+function update_target(target, opt){
     target = $(target);
     var bright_id = target.attr(MY_BRIGHT);
     if (!$.contains(document.body, target[0])) {
-        return trigger_update(bright_id, null, {
-            type: 'remove'
-        });
+        if (!opt.onlyStates) {
+            trigger_update(bright_id, null, {
+                type: 'remove'
+            });
+        }
+        return;
     }
     var guard = _guards[bright_id];
     var origin = _darkdata[bright_id];
     if (!guard || !origin) {
         return;
     }
-    var dataset = guard.bufferRoot(target)
-        .renderBuffer()
-        .releaseData();
-    compare_model(origin, 
-        Array.isArray(dataset) ? dataset[0] : dataset);
+    var dataset;
+    if (opt.onlyStates) {
+        dataset = guard.scanRoot(target, opt);
+        compare_states(origin, dataset);
+        if (origin.state) {
+            _.mix(origin.state, dataset.state);
+        }
+    } else {
+        dataset = guard.bufferRoot(target)
+            .renderBuffer()
+            .releaseData();
+        compare_model(origin, 
+            _is_array(dataset) ? dataset[0] : dataset);
+    }
 }
 
 function compare_model(origin, data){
@@ -698,20 +722,7 @@ function compare_model(origin, data){
             type: 'component'
         });
     }
-    var abort;
-    _.each(data.state, function(value, name){
-        if (this[name] != value) {
-            abort = trigger_update(data.id, data, {
-                type: 'state',
-                name: name,
-                oldValue: this[name],
-                newValue: value
-            });
-            if (abort === false) {
-                return false;
-            }
-        }
-    }, origin.state || (origin.state = {}));
+    var abort = compare_states(origin, data);
     if (abort === false) {
         return;
     }
@@ -745,6 +756,24 @@ function compare_model(origin, data){
     }, origin.componentData || (origin.componentData = {}));
 }
 
+function compare_states(origin, data){
+    var abort;
+    _.each(data.state, function(value, name){
+        if (this[name] != value) {
+            abort = trigger_update(data.id, data, {
+                type: 'state',
+                name: name,
+                oldValue: this[name],
+                newValue: value
+            });
+            if (abort === false) {
+                return false;
+            }
+        }
+    }, origin.state || (origin.state = {}));
+    return abort;
+}
+
 function compare_contents(origin, data){
     if (origin.text.length !== data.text.length) {
         return true;
@@ -761,7 +790,7 @@ function compare_contents(origin, data){
 }
 
 function compare_components(dataset, name){
-    if (!Array.isArray(dataset)) {
+    if (!_is_array(dataset)) {
         compare_model(this[name] || (this[name] = {}), 
             dataset);
         return;
@@ -815,21 +844,13 @@ function trigger_update(bright_id, data, changes){
 }
 
 function merge_source(data, source_data, context){
-    if (Array.isArray(source_data)) {
+    if (_is_array(source_data)) {
         source_data.forEach(function(source_data){
             merge_source(this, source_data, context);
         }, data);
         return data;
     }
-    if (!data.id) {
-        data.id = source_data.id;
-    }
-    data.context = context;
-    _.each(source_data.state || {}, function(value, name){
-        if (this[name] === undefined) {
-            this[name] = value;
-        }
-    }, data.state || (data.state = {}));
+    merge_source_states(data, source_data, context);
     // @note
     var content = data.contentData 
         || (data.contentData = scan_contents());
@@ -849,9 +870,28 @@ function merge_source(data, source_data, context){
     return data;
 }
 
+function merge_source_states(data, source_data, context){
+    if (_is_array(source_data)) {
+        source_data.forEach(function(source_data){
+            merge_source_states(this, source_data, context);
+        }, data);
+        return data;
+    }
+    if (!data.id) {
+        data.id = source_data.id;
+    }
+    data.context = context;
+    _.each(source_data.state || {}, function(value, name){
+        if (this[name] === undefined) {
+            this[name] = value;
+        }
+    }, data.state || (data.state = {}));
+    return data;
+}
+
 function merge_source_components(dataset, name){
     var origin = this.componentData;
-    if (Array.isArray(dataset)) {
+    if (_is_array(dataset)) {
         dataset.forEach(function(source_data){
             this.push(source_data);
         }, origin[name] || (origin[name] = []));
@@ -882,7 +922,7 @@ function fix_userdata_component(component, name){
     if (!dataset) {
         return;
     }
-    if (!Array.isArray(dataset)) {
+    if (!_is_array(dataset)) {
         dataset = [dataset];
     }
     dataset.forEach(function(data){
@@ -894,7 +934,7 @@ function fix_userdata_component(component, name){
 
 function render_root(data){
     _.each(data.componentData, function(dataset, name){
-        if (Array.isArray(dataset)) {
+        if (_is_array(dataset)) {
             this[name] = dataset.map(function(data){
                 return render_data(data);
             });
