@@ -25,7 +25,7 @@ var _defaults = {
         sourceAsContent: false,
         render: false
     },
-    _default_attrs = {
+    _default_states = {
         source: 'source-selector'
     },
     _content_buffer = {},
@@ -64,15 +64,37 @@ var dom_ext = {
         }
     },
 
-    updateDarkDOM: function(){
-        update_target(this, {});
-        exports.DarkGuard.gc();
+    getDarkState: function(name){
+        var me = $(this),
+            guard = _guards[me.attr(MY_BRIGHT)];
+        return guard
+            && read_state(me, guard.stateGetter(name))
+            || null;
     },
 
-    updateDarkDOMStates: function(){
+    setDarkState: function(name, value, opt){
+        opt = opt || {};
+        var me = $(this),
+            guard = _guards[me.attr(MY_BRIGHT)];
+        if (!guard) {
+            return;
+        }
+        var setter = guard.stateSetter(name);
+        write_state(me, setter, value);
+        if (opt.update) {
+            this.updateDarkStates();
+        }
+    },
+
+    updateDarkStates: function(){
         update_target(this, {
             onlyStates: true
         });
+    },
+
+    updateDarkDOM: function(){
+        update_target(this, {});
+        exports.DarkGuard.gc();
     },
 
     feedDarkDOM: function(fn){
@@ -101,7 +123,8 @@ var dom_ext = {
 function DarkDOM(opt){
     opt = opt || {};
     this._config = _.config({}, opt, _defaults);
-    this._attrs = _.mix({}, _default_attrs);
+    this._stateGetters = _.copy(_default_states);
+    this._stateSetters = _.copy(_default_states);
     this._components = {};
     this._contents = {};
     this._updaters = {};
@@ -119,8 +142,21 @@ DarkDOM.prototype = {
         return this;
     },
 
-    bond: function(attr, elem_attr){
-        mix_setter(attr, elem_attr, this._attrs);
+    state: function(name, getter, setter){
+        if (typeof name === 'object') {
+            _.each(name, function(getter, name){
+                this.state(name, getter);
+            }, this);
+            return this;
+        } 
+        if (!setter && typeof getter === 'string') {
+            return this.state(name, getter, getter);
+        }
+        if (_is_array(getter)) {
+            return this.state(name, getter[0], getter[1]);
+        }
+        this._stateGetters[name] = getter;
+        this._stateSetters[name] = setter;
         return this;
     },
 
@@ -129,9 +165,8 @@ DarkDOM.prototype = {
             opt = component;
         }
         opt = opt || {};
-        var dict = mix_setter(name, component, this._components, {
-            execFunc: true
-        });
+        var dict = mix_setter(name, component, 
+            this._components, { execFunc: true });
         if (opt.content) {
             _.mix(this._contents, dict);
         }
@@ -154,7 +189,8 @@ DarkDOM.prototype = {
 
     createGuard: function(opt){
         return new exports.DarkGuard(_.mix({
-            attrs: this._attrs,
+            stateGetters: this._stateGetters,
+            stateSetters: this._stateSetters,
             components: this._components,
             contents: this._contents,
             updaters: this._updaters,
@@ -166,7 +202,8 @@ DarkDOM.prototype = {
 };
 
 function DarkGuard(opt){
-    this._attrs = Object.create(opt.attrs);
+    this._stateGetters = Object.create(opt.stateGetters);
+    this._stateSetters = Object.create(opt.stateSetters);
     this._options = opt.options;
     this._config = _.mix({}, opt);
     this._darkRoots = [];
@@ -181,10 +218,7 @@ function DarkGuard(opt){
 
 DarkGuard.prototype = {
 
-    bond: function(attr, elem_attr){
-        mix_setter(attr, elem_attr, this._attrs);
-        return this;
-    },
+    state: DarkDOM.prototype.state,
 
     component: function(name, spec){
         mix_setter(name, spec, this._specs);
@@ -201,6 +235,14 @@ DarkGuard.prototype = {
             return;
         }
         return this._sourceGuard;
+    },
+
+    stateGetter: function(name){
+        return this._stateGetters[name];
+    },
+
+    stateSetter: function(name){
+        return this._stateSetters[name];
     },
 
     watch: function(targets){
@@ -332,7 +374,7 @@ DarkGuard.prototype = {
             data.context = this._config.contextData;
         }
         data.state = {};
-        _.each(this._attrs, function(getter, name){
+        _.each(this._stateGetters, function(getter, name){
             this[name] = read_state(target, getter);
         }, data.state);
         if (!opt.onlyStates) {
@@ -348,12 +390,12 @@ DarkGuard.prototype = {
     },
 
     _scanComponents: function(data, target){
-        var re = {};
-        _.each(this._config.components, function(component, name){
+        var re = {}, cfg = this._config, opts = this._options;
+        _.each(cfg.components, function(component, name){
             var guard = component.createGuard({
                 contextData: data,
                 contextTarget: target,
-                isSource: this._config.isSource
+                isSource: cfg.isSource
             });
             var spec = this._specs[name];
             if (typeof spec === 'string') {
@@ -362,7 +404,7 @@ DarkGuard.prototype = {
                 spec(guard);
             }
             guard.buffer();
-            if (this._config.contents[name]) {
+            if (cfg.contents[name]) {
                 guard._bufferContent();
             } else {
                 re[name] = guard.releaseData();
@@ -370,9 +412,9 @@ DarkGuard.prototype = {
         }, this);
         data.componentData = re;
         data.contentData = this._scanContents(target, {
-            scriptContext: !this._options.disableScript && target[0],
-            entireAsContent: this._options.entireAsContent,
-            noComs: !Object.keys(this._config.components).length
+            scriptContext: !opts.disableScript && target[0],
+            entireAsContent: opts.entireAsContent,
+            noComs: !Object.keys(cfg.components).length
         });
     },
 
@@ -572,10 +614,11 @@ init_plugins($);
 function init_plugins($){
     _.each(dom_ext, function(method, name){
         this[name] = function(){
+            var re;
             _.each(this, function(target){
-                method.apply(target, this);
+                re = method.apply(target, this);
             }, arguments);
-            return this;
+            return re === undefined ? this : re;
         };
     }, $.fn);
 }
@@ -973,6 +1016,14 @@ function read_state(target, getter){
     return (typeof getter === 'string' 
         ? target.attr(getter) 
         : getter && getter(target)) || undefined;
+}
+
+function write_state(target, setter, value){
+    if (typeof setter === 'string') {
+        target.attr(setter, value);
+    } else if (setter) {
+        setter(target, value);
+    }
 }
 
 function default_render(data){
