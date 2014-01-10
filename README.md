@@ -54,9 +54,9 @@ var component = darkdom(options); // see component.set(options)
             * `data.content` 
             * `data.component`
             * `data.context`
-* `component.bond(stateName, attrName)` --
-* `component.bond(stateName, function(){ return stateValue; })` --
-* `component.bond({ stateName: attrName, ... })` --
+* `component.state(stateName, attrName)` --
+* `component.state(stateName, getter, setter)` --
+* `component.state({ stateName: attrName, stateName: getter, stateName: [getter, setter], ... })` --
 * `component.contain(childComponentName, otherComponent)` --
 * `component.contain(childComponentName, function(childComponent){ ...;return childComponent; })` --
 * `component.contain({ childComponentName: otherComponent, ... })` --
@@ -74,7 +74,7 @@ var component = darkdom(options); // see component.set(options)
 var guard = component.createGuard();
 ```
 
-* `guard.bond()` -- see `component.bond`
+* `guard.state()` -- see `component.state`
 * `guard.component(childComponentName, function(childGuard){ /*spec*/  })` --
 * `guard.component({ childComponentName: spec, ... })` --
 * `guard.forward(eventName, 'eventType selector')` --
@@ -89,6 +89,8 @@ var guard = component.createGuard();
 * `guard.unmount()` --
 * `guard.update()` --
 * `guard.render()` --
+* `guard.stateGetter(name)` --
+* `guard.stateSetter(name)` --
 * `guard.createRoot()` --
 * `guard.createSource()` --
 
@@ -101,6 +103,11 @@ guard.watch(root);
 
 * `root.mountDarkDOM()` --
 * `root.unmountDarkDOM()` --
+* `root.getDarkState(name)` --
+* `root.setDarkState(name, value, options)` --
+    * options --
+        * `update: false` -- 
+* `root.updateDarkStates()` --
 * `root.updateDarkDOM()` --
 * `root.feedDarkDOM(sourceData)` --
 * `root.feedDarkDOM(function(sourceData){...})` --
