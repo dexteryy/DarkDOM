@@ -331,6 +331,7 @@ DarkGuard.prototype = {
         target.trigger('darkdom:willMount');
         var data = render_root(this.scanRoot(target));
         target.hide().before(this.createRoot(data));
+        this._listen(data);
         target[0].isMountedDarkDOM = true;
         run_script(data);
         target.trigger('darkdom:rendered')
@@ -460,13 +461,28 @@ DarkGuard.prototype = {
         var bright_root = $(html);
         bright_root.attr(IS_BRIGHT, 'true');
         bright_root.attr('id', data.id);
-        this.registerEvents(bright_root);
         return bright_root;
     },
 
     render: function(data){
         return (this._options.render
             || default_render)(data);
+    },
+
+    _listen: function(data){
+        if (data.id) {
+            this.registerEvents($('#' + data.id));
+        }
+        _.each(data.componentData || {}, function(dataset){
+            if (_is_array(dataset)) {
+                return dataset.forEach(this._listen, this);
+            }
+            this._listen(dataset);
+        }, this);
+        var cd = data.contentData;
+        if (cd) {
+            _.each(cd._index || {}, this._listen, this);
+        }
     },
 
     selectTargets: function(targets){
@@ -503,19 +519,23 @@ DarkGuard.prototype = {
         }
         if (changes.root[0]) {
             this.createRoot(changes.data).replaceAll(changes.root);
+            this._listen(changes.data);
             return re;
         }
     },
 
     registerEvents: function(bright_root){
-        var self = this;
-        var dark_root = $('[' + MY_BRIGHT + '="' 
-            + bright_root.attr('id') + '"]');
-        _.each(this._config.events, function(subject, bright_sel){
+        var bright_id = bright_root.attr('id'),
+            guard = _guards[bright_id];
+        if (!guard) {
+            return;
+        }
+        var dark_root = DarkGuard.getDarkById(bright_id);
+        _.each(guard._config.events, function(subject, bright_sel){
             bright_sel = RE_EVENT_SEL.exec(bright_sel);
             this.on(bright_sel[1], function(e){
                 if (_matches_selector(e.target, bright_sel[2])) {
-                    self.triggerEvent(dark_root, subject, e);
+                    guard.triggerEvent(dark_root, subject, e);
                 }
                 return false;
             });
@@ -586,6 +606,10 @@ DarkGuard.prototype = {
         }
     }
 
+};
+
+DarkGuard.getDarkById = function(bright_id){
+    return $('[' + MY_BRIGHT + '="' + bright_id + '"]');
 };
 
 DarkGuard.gc = function(){
@@ -863,7 +887,7 @@ function trigger_update(bright_id, data, changes){
     if (!bright_id) {
         return;
     }
-    var dark_root = $('[' + MY_BRIGHT + '="' + bright_id + '"]');
+    var dark_root = DarkGuard.getDarkById(bright_id);
     dark_root.trigger('darkdom:willUpdate');
     var re, bright_root = $('#' + bright_id),
         guard = _guards[bright_id];
@@ -1057,6 +1081,7 @@ function exports(opt){
 
 exports.DarkDOM = DarkDOM;
 exports.DarkGuard = DarkGuard;
+exports.getDarkById = DarkGuard.getDarkById;
 exports.gc = DarkGuard.gc;
 exports.initPlugins = init_plugins;
 
