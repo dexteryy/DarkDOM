@@ -957,14 +957,15 @@ function merge_source_states(data, source_data, context){
 }
 
 function merge_source_components(dataset, name){
+    var context = this;
     var origin = this.componentData;
     if (_is_array(dataset)) {
         dataset.forEach(function(source_data){
-            this.push(source_data);
+            this.push(merge_source({}, source_data, context));
         }, origin[name] || (origin[name] = []));
     } else {
         merge_source(origin[name] || (origin[name] = {}),
-            dataset, this);
+            dataset, context);
     }
 }
 
