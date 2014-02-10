@@ -101,8 +101,10 @@ var root = $(selector)[0];
 guard.watch(root);
 ```
 
+* `root.darkGuard()` --
 * `root.mountDarkDOM()` --
 * `root.unmountDarkDOM()` --
+* `root.resetDarkDOM()` --
 * `root.getDarkState(name)` --
 * `root.setDarkState(name, value, options)` --
     * options --
