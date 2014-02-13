@@ -337,7 +337,7 @@ DarkGuard.prototype = {
         }
         target.trigger('darkdom:willMount');
         var data = render_root(this.scanRoot(target));
-        target.hide().before(this.createRoot(data));
+        target.hide().after(this.createRoot(data));
         this._listen(data);
         target[0].isMountedDarkDOM = true;
         run_script(data);
