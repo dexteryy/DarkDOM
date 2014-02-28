@@ -15,7 +15,7 @@
 /**
  * @module darkdom
  */
-define([
+define('darkdom', [
     'mo/lang/es5',
     'mo/lang/mix',
     'dollar'
@@ -219,12 +219,28 @@ DarkDOM.prototype = {
     feedDarkDOM: function(fn){
         var bright_id = $(this).attr(MY_BRIGHT),
             guard = _guards[bright_id];
-        if (guard) {
-            var user_data = is_function(fn) 
-                ? fn(_source_models[bright_id]) : fn;
-            fix_userdata(user_data, guard);
-            _source_models[bright_id] = user_data;
+        if (!guard) {
+            return;
         }
+        var source_modelset = _source_models[bright_id];
+        if (!source_modelset) {
+            var source = read_state($(this), 
+                guard.stateGetter('source'));
+            source_modelset = guard.scanSource(source);
+        }
+        var is_unique = !_is_array(source_modelset);
+        var source_model = source_modelset;
+        if (!is_unique) {
+            source_model = {};
+            source_modelset.forEach(function(model){
+                merge_source(this, model);
+            }, source_model);
+        }
+        var user_data = is_function(fn) 
+            ? fn(source_model) : fn;
+        fix_userdata(user_data, guard);
+        _source_models[bright_id] = is_unique 
+            ? user_data : [user_data];
     },
 
     /**
@@ -743,7 +759,9 @@ DarkGuard.prototype = {
             bright_sel = RE_EVENT_SEL.exec(bright_sel);
             this.on(bright_sel[1], function(e){
                 if (_matches_selector(e.target, bright_sel[2])) {
-                    guard.triggerEvent(dark_root, subject, e);
+                    guard.triggerEvent(dark_root[0] 
+                            ? dark_root : $(_.unique(guard._darkRoots)), 
+                        subject, e);
                 }
                 return false;
             });
@@ -787,25 +805,24 @@ DarkGuard.prototype = {
         return this._sourceGuard;
     },
 
-    scanSource: function(bright_id, selector){
+    scanSource: function(selector){
         if (!selector) {
             return;
         }
         var guard = this._sourceGuard;
+        guard._darkRoots.length = 0;
         var targets = guard.selectTargets(selector);
         guard.watch(targets);
         guard.buffer();
         var source_modelset = guard.releaseModel();
         guard.unwatch(targets);
-        _source_models[bright_id] = source_modelset;
         return source_modelset;
     },
 
     _mergeSource: function(dark_model, opt){
         var source = _source_models[dark_model.id];
         if (!source) {
-            source = this.scanSource(dark_model.id, 
-                dark_model.state.source);
+            source = this.scanSource(dark_model.state.source);
         }
         if (!source) {
             return;
@@ -1183,15 +1200,30 @@ function merge_source_states(dark_model, source_model, context){
 
 function merge_source_components(source_modelset, name){
     var context = this;
-    var origin = this.componentData;
+    var origin = context.componentData;
     if (_is_array(source_modelset)) {
+        var origin_list = [];
+        (origin[name] || []).forEach(function(model){
+            if (!is_source_model(model)) {
+                this.push(model);
+            }
+        }, origin_list);
         source_modelset.forEach(function(source_model){
             this.push(merge_source({}, source_model, context));
-        }, origin[name] || (origin[name] = []));
+        }, origin[name] = origin_list);
     } else {
-        merge_source(origin[name] || (origin[name] = {}),
-            source_modelset, context);
+        if (is_source_model(origin[name] || {})) {
+            origin[name] = source_modelset;
+        } else {
+            merge_source(origin[name] || (origin[name] = {}), 
+                source_modelset, context);
+        }
     }
+}
+
+function is_source_model(model){
+    var guard = _guards[model.id];
+    return guard && guard.isSource();
 }
 
 function fix_userdata(data, guard){

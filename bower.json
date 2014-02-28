@@ -1,7 +1,7 @@
 {
     "name": "darkdom",
     "description": "Design your own markup languages to build responsive cross-screen UI components",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "main": "darkdom.js",
     "dependencies": {
         "dollar": "~1.4.1",
@@ -13,6 +13,9 @@
         "node_modules",
         "components",
         "bower_components",
+        "jsdoc.json",
+        "package.json",
+        "Gruntfile.js",
         "test",
         "tests"
     ]

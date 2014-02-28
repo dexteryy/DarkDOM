@@ -8,7 +8,18 @@
 
 ## Examples
 
-[http://codepen.io/dexteryy/pen/niuCG](http://codepen.io/dexteryy/pen/niuCG)
+* Learning DarkDOM Visually
+
+  ![darkdom](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom_thumbnail.png)
+
+  * [PDF version](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom.pdf)
+  * [PNG version](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom.png)
+  * [Source code](https://github.com/douban-f2e/cardkit-demo-darkdom)
+  * [Online demo (list)](http://douban-f2e.github.io/cardkit-demo-darkdom/index.html)
+  * [Online demo (Folder)](http://douban-f2e.github.io/cardkit-demo-darkdom/folder.html)
+
+* codepen
+  * [http://codepen.io/dexteryy/pen/niuCG](http://codepen.io/dexteryy/pen/niuCG)
 
 ## Usage
 
@@ -36,7 +47,7 @@ Or [download directly from Github](https://github.com/dexteryy/DarkDOM/blob/mast
 
 ## API and usage
 
-### Component API (For UI)
+### DarkComponent API
 
 ```javascript
 var darkdom = require('darkdom');
@@ -68,7 +79,7 @@ var component = darkdom(options); // see component.set(options)
 * `component.component(childComponentName)` --
 * `component.createGuard()` --
 
-### Guard API (For Spec)
+### DarkGuard API
 
 ```javascript
 var guard = component.createGuard();
@@ -94,7 +105,7 @@ var guard = component.createGuard();
 * `guard.createRoot()` --
 * `guard.createSource()` --
 
-### DOM API (For Application)
+### DOM API
 
 ```javascript
 var root = $(selector)[0];
