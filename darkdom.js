@@ -11,6 +11,10 @@
  * Copyright (C) 2013-2014, Dexter.Yy, MIT License
  * vim: et:ts=4:sw=4:sts=4
  */
+
+/**
+ * @module darkdom
+ */
 define([
     'mo/lang/es5',
     'mo/lang/mix',
@@ -46,14 +50,39 @@ var _defaults = {
     RE_EVENT_SEL = /(\S+)\s*(.*)/,
     RE_HTMLTAG = /^\s*<(\w+|!)[^>]*>/;
 
+/**
+ * @memberof module:darkdom
+ * @alias DarkDOM
+ * @class
+ *
+ * @desc Mixin class
+ *
+ * @see module:darkdom.DarkGuard#watch}
+ * @see module:darkdom.initPlugins}
+ *
+ * @example 
+ * $('x-folder').attr({
+ *     mode: 'unfold'
+ * }).updateDarkDOM();
+ * // or $('x-folder')[0].updateDarkDOM();
+ */
 function DarkDOM(){}
 
 DarkDOM.prototype = {
 
+    /**
+     * @method
+     * @returns {DarkGuard} 
+     */
     darkGuard: function(){
         return _guards[this.getAttribute(MY_BRIGHT)];
     },
 
+    /**
+     * @method
+     * @see module:darkdom.DarkGuard#mount
+     * @see module:darkdom.DarkGuard#mountRoot
+     */
     mountDarkDOM: function(){
         var guard = this.darkGuard();
         if (guard) {
@@ -61,6 +90,11 @@ DarkDOM.prototype = {
         }
     },
 
+    /**
+     * @method
+     * @see module:darkdom.DarkGuard#unmount
+     * @see module:darkdom.DarkGuard#unmountRoot
+     */
     unmountDarkDOM: function(){
         var guard = this.darkGuard();
         if (guard) {
@@ -68,6 +102,17 @@ DarkDOM.prototype = {
         }
     },
 
+    /**
+     * [Unmount]{@link 
+     * module:darkdom.DarkDOM#unmountDarkDOM} & [deregister]{@link 
+     * module:darkdom.DarkGuard#unregisterRoot}
+     *
+     * @method
+     * @see module:darkdom.DarkGuard#unmount
+     * @see module:darkdom.DarkGuard#unwatch
+     * @see module:darkdom.DarkGuard#unmountRoot
+     * @see module:darkdom.DarkGuard#unregisterRoot
+     */
     resetDarkDOM: function(){
         var guard = this.darkGuard();
         if (guard) {
@@ -76,6 +121,36 @@ DarkDOM.prototype = {
         }
     },
 
+    /**
+     * @example
+     * var component = darkdom({ render: function(){} });
+     *
+     * var guard_A = component.createGuard();
+     * guard_A.watch('x-folder');
+     * guard_A.state('isFolded', 'data-folded');
+     *
+     * var guard_B = component.createGuard();
+     * guard_B.watch('.x-folder');
+     * guard_B.state('isFolded', function(node){
+     *     return node.hasClass('folded');
+     * });
+     *
+     * console.log($('x-folder').data('folded')); // (A1)
+     * console.log($('x-folder').getDarkState('isFolded')); // (A1)
+     *
+     * console.log($('.x-folder').hasClass('folded')); // (B1)
+     * console.log( // (B2)
+     *     $('.x-folder').darkGuard().stateGetter('isFolded')(
+     *         $('.x-folder')
+     *     )
+     * );
+     * console.log($('.x-folder').getDarkState('isFolded')); // (B3)
+     *
+     * @method
+     * @param {String} name - 
+     * @see module:darkdom.DarkComponent#state
+     * @see module:darkdom.DarkGuard#state
+     */
     getDarkState: function(name){
         var guard = this.darkGuard();
         return guard
@@ -83,6 +158,13 @@ DarkDOM.prototype = {
             || null;
     },
 
+    /**
+     * @method
+     * @param {String} name - 
+     * @param {String|Function} value - 
+     * @param {String} opt - 
+     * @see module:darkdom.DarkDOM#getDarkState
+     */
     setDarkState: function(name, value, opt){
         opt = opt || {};
         var guard = this.darkGuard();
@@ -95,17 +177,45 @@ DarkDOM.prototype = {
         }
     },
 
+    /**
+     * High-performance version of [DarkDOM#updateDarkDOM]{@link 
+     * module:darkdom.DarkDOM#updateDarkDOM}
+     *
+     * @method
+     */
     updateDarkStates: function(){
         update_target(this, {
             onlyStates: true
         });
     },
 
+    /**
+     * @method
+     */
     updateDarkDOM: function(){
         update_target(this, {});
         exports.DarkGuard.gc();
     },
 
+    /**
+     * @example <caption>HTML(Jade syntax)</caption>
+     * x-folder(mode="unfold")
+     *   hd(source-selector=".source-data h1")
+     * div(class="source-data")
+     *   h1 The header A
+     *
+     * @example <caption>JS</caption>
+     * $('x-folder').attr({
+     *     mode: 'fold'
+     * }).find('hd').feedDarkDOM({
+     *     state: {
+     *         label: 'The header B'
+     *     }
+     * }).end().updateDarkDOM();
+     *
+     * @method
+     * @param {Function} fn - accepts {@link SourceModel}
+     */
     feedDarkDOM: function(fn){
         var bright_id = $(this).attr(MY_BRIGHT),
             guard = _guards[bright_id];
@@ -117,6 +227,11 @@ DarkDOM.prototype = {
         }
     },
 
+    /**
+     * @method
+     * @param {UpdateEventName} subject
+     * @param {Function} handler - accepts {@link DarkModelChanges}
+     */
     responseDarkDOM: function(subject, handler){
         var target = $(this),
             bright_id = target.attr(MY_BRIGHT),
@@ -129,6 +244,12 @@ DarkDOM.prototype = {
 
 };
 
+/**
+ * @memberof module:darkdom
+ * @alias DarkComponent
+ * @class
+ * @param {object}
+ */
 function DarkComponent(opt){
     opt = opt || {};
     this._config = _.config({}, opt, _defaults);
@@ -143,6 +264,10 @@ function DarkComponent(opt){
 
 DarkComponent.prototype = {
 
+    /**
+     * @method
+     * @param {object}
+     */
     set: function(opt){
         if (!opt) {
             return this;
@@ -151,6 +276,12 @@ DarkComponent.prototype = {
         return this;
     },
 
+    /**
+     * @method
+     * @param {string|object} name
+     * @param {(function|string)} getter
+     * @param {(function|string)} setter
+     */
     state: function(name, getter, setter){
         if (typeof name === 'object') {
             _.each(name, function(getter, name){
@@ -169,6 +300,9 @@ DarkComponent.prototype = {
         return this;
     },
 
+    /**
+     * @method
+     */
     contain: function(name, component, opt){
         if (typeof name === 'object') {
             opt = component;
@@ -182,20 +316,32 @@ DarkComponent.prototype = {
         return this;
     },
 
+    /**
+     * @method
+     */
     forward: function(selector, subject){
         mix_setter(selector, subject, this._events);
         return this;
     },
 
+    /**
+     * @method
+     */
     response: function(subject, handler){
         this._updaters[subject] = handler;
         return this;
     },
 
+    /**
+     * @method
+     */
     component: function(name){
         return this._components[name];
     },
 
+    /**
+     * @method
+     */
     createGuard: function(opt){
         return new exports.DarkGuard(_.mix({
             stateGetters: this._stateGetters,
@@ -210,6 +356,11 @@ DarkComponent.prototype = {
 
 };
 
+/**
+ * @memberof module:darkdom
+ * @alias DarkGuard
+ * @class
+ */
 function DarkGuard(opt){
     this._stateGetters = Object.create(opt.stateGetters);
     this._stateSetters = Object.create(opt.stateSetters);
@@ -227,18 +378,30 @@ function DarkGuard(opt){
 
 DarkGuard.prototype = {
 
+    /**
+     * @borrows DarkComponent#state
+     */
     state: DarkComponent.prototype.state,
 
+    /**
+     * @method
+     */
     component: function(name, spec){
         mix_setter(name, spec, this._specs);
         return this;
     },
 
+    /**
+     * @method
+     */
     forward: function(subject, selector){
         mix_setter(subject, selector, this._events);
         return this;
     },
 
+    /**
+     * @method
+     */
     source: function(){
         if (!this._options.enableSource) {
             return;
@@ -246,20 +409,32 @@ DarkGuard.prototype = {
         return this._sourceGuard;
     },
 
+    /**
+     * @method
+     */
     stateGetter: function(name){
         return this._stateGetters[name];
     },
 
+    /**
+     * @method
+     */
     stateSetter: function(name){
         return this._stateSetters[name];
     },
 
+    /**
+     * @method
+     */
     watch: function(targets){
         this.selectTargets(targets)
             .forEach(this.registerRoot, this);
         return this;
     },
 
+    /**
+     * @method
+     */
     unwatch: function(targets){
         targets = targets 
             ? this.selectTargets(targets)
@@ -268,11 +443,17 @@ DarkGuard.prototype = {
         return this;
     },
 
+    /**
+     * @method
+     */
     mount: function(){
         this._darkRoots.forEach(this.mountRoot, this);
         return this;
     },
 
+    /**
+     * @method
+     */
     unmount: function(){
         this._darkRoots.forEach(this.unmountRoot, this);
         return this;
@@ -317,6 +498,9 @@ DarkGuard.prototype = {
         return bright_id;
     },
 
+    /**
+     * @method
+     */
     unregisterRoot: function(target){
         target = $(target);
         var bright_id = target.attr(MY_BRIGHT);
@@ -331,6 +515,9 @@ DarkGuard.prototype = {
         clear(this._darkRoots, target[0]);
     },
 
+    /**
+     * @method
+     */
     mountRoot: function(target){
         target = $(target);
         if (target.attr(IS_BRIGHT)
@@ -348,6 +535,9 @@ DarkGuard.prototype = {
         return this;
     },
 
+    /**
+     * method
+     */
     unmountRoot: function(target){
         target = $(target);
         var bright_id = target.attr(MY_BRIGHT);
@@ -526,6 +716,9 @@ DarkGuard.prototype = {
         return handler.call(this, changes);
     },
 
+    /**
+     * @method
+     */
     defaultUpdater: function(changes){
         var re = false;
         if (!changes.model) {
@@ -574,6 +767,9 @@ DarkGuard.prototype = {
         });
     },
 
+    /**
+     * @method
+     */
     isSource: function(){
         return this._config.isSource;
     },
@@ -623,10 +819,17 @@ DarkGuard.prototype = {
 
 };
 
+/**
+ * @param {string} bright_id - bright root's id
+ * @returns {$}
+ */
 DarkGuard.getDarkById = function(bright_id){
     return $('[' + MY_BRIGHT + '="' + bright_id + '"]');
 };
 
+/**
+ * @desc gc
+ */
 DarkGuard.gc = function(){
     var current = {};
     $('[' + MY_BRIGHT + ']').forEach(function(target){
@@ -650,6 +853,12 @@ DarkGuard.gc = function(){
 
 init_plugins($);
 
+/**
+ * @memberof module:darkdom
+ * @alias module:darkdom.initPlugins
+ * @param {$} $
+ * @desc Add DarkDOM API to Dollar/jQuery
+ */
 function init_plugins($){
     _.each(DarkDOM.prototype, function(method, name){
         this[name] = function(){
@@ -1092,6 +1301,9 @@ function mix_setter(key, value, context, opt){
     return re;
 }
 
+/**
+ * @param {Object} opt - options
+ */
 function exports(opt){
     return new exports.DarkComponent(opt);
 }
@@ -1099,7 +1311,17 @@ function exports(opt){
 exports.DarkDOM = DarkDOM;
 exports.DarkComponent = DarkComponent;
 exports.DarkGuard = DarkGuard;
+/** 
+ * @method
+ * @borrows DarkGuard.getDarkById 
+ * @see module:darkdom.DarkGuard.getDarkById
+ */
 exports.getDarkById = DarkGuard.getDarkById;
+/** 
+ * @method
+ * @borrows DarkGuard.gc
+ * @see module:darkdom.DarkGuard.gc
+ */
 exports.gc = DarkGuard.gc;
 exports.initPlugins = init_plugins;
 

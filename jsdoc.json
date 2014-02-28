@@ -1,0 +1,27 @@
+{
+    "tags"      : {
+        "allowUnknownTags" : true
+    },
+    "plugins": [
+        "plugins/markdown"
+    ],
+    "markdown": {
+        "parser": "gfm",
+        "hardwrap": true
+    },
+    "templates" : {
+        "cleverLinks"     : false,
+        "monospaceLinks"  : false,
+        "default"         : {
+            "outputSourceFiles" : true
+        },
+        "systemName"      : "DarkDOM",
+        "footer"          : "",
+        "copyright"       : "",
+        "navType"         : "vertical",
+        "theme"           : "united",
+        "linenums"        : true,
+        "collapseSymbols" : false,
+        "inverseNav"      : true
+    }
+}

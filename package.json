@@ -1,0 +1,36 @@
+{
+  "name": "darkdom",
+  "description": "",
+  "homepage": "https://github.com/dexteryy/DarkDOM",
+  "author": {
+    "name": "dexteryy",
+    "email": "dexter.yy@gmail.com",
+    "url": "http://github.com/dexteryy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/dexteryy/DarkDOM.git"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://www.opensource.org/licenses/mit-license.php"
+    }
+  ],
+  "engines": {
+    "node": ">= 0.8.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "grunt": "~0.4.2",
+    "grunt-contrib-watch": "~0.5.3",
+    "grunt-jsdoc": "~0.5.1",
+    "ink-docstrap": "~0.3.0-0"
+  },
+  "peerDependencies": {
+    "grunt": "~0.4.0"
+  },
+  "main": "darkdom",
+  "version": "0.1.0",
+  "keywords": []
+}
