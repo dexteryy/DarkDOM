@@ -217,30 +217,8 @@ DarkDOM.prototype = {
      * @param {Function} fn - accepts {@link SourceModel}
      */
     feedDarkDOM: function(fn){
-        var bright_id = $(this).attr(MY_BRIGHT),
-            guard = _guards[bright_id];
-        if (!guard) {
-            return;
-        }
-        var source_modelset = _source_models[bright_id];
-        if (!source_modelset) {
-            var source = read_state($(this), 
-                guard.stateGetter('source'));
-            source_modelset = guard.scanSource(source);
-        }
-        var is_unique = !_is_array(source_modelset);
-        var source_model = source_modelset;
-        if (!is_unique) {
-            source_model = {};
-            source_modelset.forEach(function(model){
-                merge_source(this, model);
-            }, source_model);
-        }
-        var user_data = is_function(fn) 
-            ? fn(source_model) : fn;
-        fix_userdata(user_data, guard);
-        _source_models[bright_id] = is_unique 
-            ? user_data : [user_data];
+        var bright_id = $(this).attr(MY_BRIGHT);
+        update_source_model(bright_id, fn);
     },
 
     /**
@@ -754,24 +732,27 @@ DarkGuard.prototype = {
         if (!guard) {
             return;
         }
-        var dark_root = DarkGuard.getDarkById(bright_id);
         _.each(guard._config.events, function(subject, bright_sel){
             bright_sel = RE_EVENT_SEL.exec(bright_sel);
             this.on(bright_sel[1], function(e){
                 if (_matches_selector(e.target, bright_sel[2])) {
-                    guard.triggerEvent(dark_root[0] 
-                            ? dark_root : $(_.unique(guard._darkRoots)), 
-                        subject, e);
+                    guard.triggerEvent(bright_id, subject, e);
                 }
                 return false;
             });
         }, bright_root);
     },
 
-    triggerEvent: function(target, subject, e){
+    triggerEvent: function(bright_id, subject, e){
         var dark_sel = this._events[subject];
         if (!dark_sel) {
             return;
+        }
+        var target = DarkGuard.getDarkById(bright_id);
+        if (!target[0]) {
+            return dark_sel(e, null, function(fn){
+                update_source_model(bright_id, fn);
+            });
         }
         if (typeof dark_sel !== 'string') {
             return dark_sel(e, target);
@@ -805,7 +786,7 @@ DarkGuard.prototype = {
         return this._sourceGuard;
     },
 
-    scanSource: function(selector){
+    scanSource: function(bright_id, selector){
         if (!selector) {
             return;
         }
@@ -816,16 +797,25 @@ DarkGuard.prototype = {
         guard.buffer();
         var source_modelset = guard.releaseModel();
         guard.unwatch(targets);
-        return source_modelset;
+        var source_model = source_modelset;
+        if (_is_array(source_modelset)) {
+            source_model = {};
+            source_modelset.forEach(function(model){
+                merge_source(this, model);
+            }, source_model);
+        }
+        return source_model;
     },
 
     _mergeSource: function(dark_model, opt){
-        var source = _source_models[dark_model.id];
+        var bright_id = dark_model.id;
+        var source = _source_models[bright_id];
         if (!source) {
-            source = this.scanSource(dark_model.state.source);
-        }
-        if (!source) {
-            return;
+            source = this.scanSource(bright_id, dark_model.state.source);
+            if (!source) {
+                return;
+            }
+            _source_models[bright_id] = source;
         }
         if (opt.onlyStates) {
             merge_source_states(dark_model, source, dark_model.context);
@@ -1226,34 +1216,91 @@ function is_source_model(model){
     return guard && guard.isSource();
 }
 
+function update_source_model(bright_id, fn){
+    var source = find_root(bright_id);
+    var is_child;
+    if (!is_child) {
+        _source_models[bright_id] = setter(source);
+    } else {
+        update_child(source);
+    }
+    function find_root(current_id){
+        var root = _source_models[current_id];
+        if (root) {
+            return root;
+        }
+        is_child = true;
+        current_id = _dark_models[current_id].context.id;
+        return find_root(current_id);
+    }
+    function update_child(model){
+        _.each(model.componentData, function(child, name){
+            if (_is_array(child)){
+                var re = true;
+                _.each(child, function(child, i){
+                    if (child.id === bright_id) {
+                        this[i] = setter(child);
+                        return re = false;
+                    }
+                }, child);
+                return re;
+            } else if (model.id === bright_id) {
+                this[name] = setter(model);
+                return false;
+            }
+            update_child(child);
+        }, model);
+    }
+    function setter(model){
+        var user_data = is_function(fn) 
+            ? (fn(model) || model) : fn;
+        fix_userdata(user_data, _guards[model.id]);
+        return user_data;
+    }
+}
+
 function fix_userdata(data, guard){
     if (!data.id) {
         data.id = uuid();
         _guards[data.id] = guard;
     }
+    if (!data.state) {
+        data.state = {};
+    }
     if (data.componentData) {
-        _.each(guard._config.components, 
-            fix_userdata_component, 
-            data.componentData);
+        _.each(guard._config.components, fix_userdata_component, {
+            specs: guard._specs,
+            data: data.componentData
+        });
+    } else {
+        data.componentData = {};
     }
     if (data.contentData) {
         data.contentData._hasOuter = guard._options.sourceAsContent 
             || guard._options.entireAsContent;
+    } else {
+        data.contentData = {};
     }
 }
 
 function fix_userdata_component(component, name){
-    var dataset = this[name];
+    var dataset = this.data[name];
     if (!dataset) {
         return;
     }
     if (!_is_array(dataset)) {
         dataset = [dataset];
     }
+    var spec = this.specs[name];
+    spec = typeof spec !== 'string' && spec;
     dataset.forEach(function(data){
-        fix_userdata(data, this.createGuard({
+        var user_guard = this.createGuard({
             isSource: true
-        }));
+        });
+        if (spec) {
+            spec(user_guard);
+        }
+        fix_userdata(data, user_guard);
     }, component);
 }
 
