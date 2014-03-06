@@ -995,6 +995,7 @@ function update_target(target, opt){
     var dark_modelset;
     if (opt.onlyStates) {
         dark_modelset = guard.scanRoot(target, opt);
+        _.merge(dark_modelset, origin);
         compare_states(origin, dark_modelset);
         if (origin.state) {
             _.mix(origin.state, dark_modelset.state);

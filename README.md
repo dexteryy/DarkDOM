@@ -10,13 +10,14 @@
 
 * Learning DarkDOM Visually
 
-  ![darkdom](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom_thumbnail.png)
+  [![](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom_thumbnail.png)](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom.pdf)
 
   * [PDF version](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom.pdf)
   * [PNG version](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom.png)
   * [Source code](https://github.com/douban-f2e/cardkit-demo-darkdom)
+  * [Online demo (folder)](http://douban-f2e.github.io/cardkit-demo-darkdom/folder.html)
   * [Online demo (list)](http://douban-f2e.github.io/cardkit-demo-darkdom/index.html)
-  * [Online demo (Folder)](http://douban-f2e.github.io/cardkit-demo-darkdom/folder.html)
+  * [Online demo (deck)](http://douban-f2e.github.io/cardkit-demo-darkdom/deck.html)
 
 * codepen
   * [http://codepen.io/dexteryy/pen/niuCG](http://codepen.io/dexteryy/pen/niuCG)
@@ -45,7 +46,7 @@ Or [download directly from Github](https://github.com/dexteryy/DarkDOM/blob/mast
 * [mo/lang/mix](https://github.com/dexteryy/mo)
 * [dollar](https://github.com/dexteryy/DollarJS) (or other jQuery-compatible library + [dollar/jquery](https://github.com/dexteryy/DollarJS/blob/master/dollar/jquery.js))  
 
-## API and usage
+## API and Usage
 
 ### DarkComponent API
 
