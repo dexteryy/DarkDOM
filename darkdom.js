@@ -198,6 +198,15 @@ DarkDOM.prototype = {
     },
 
     /**
+     * @method
+     */
+    updateDarkSource: function(){
+        var bright_id = $(this).attr(MY_BRIGHT);
+        delete _source_models[bright_id];
+        this.updateDarkDOM();
+    },
+
+    /**
      * @example <caption>HTML(Jade syntax)</caption>
      * x-folder(mode="unfold")
      *   hd(source-selector=".source-data h1")
@@ -218,7 +227,7 @@ DarkDOM.prototype = {
      */
     feedDarkDOM: function(fn){
         var bright_id = $(this).attr(MY_BRIGHT);
-        update_source_model(bright_id, fn);
+        update_source_model(bright_id, fn, true);
     },
 
     /**
@@ -1217,7 +1226,12 @@ function is_source_model(model){
     return guard && guard.isSource();
 }
 
-function update_source_model(bright_id, fn){
+function update_source_model(bright_id, fn, is_feed){
+    var has_handler = is_function(fn);
+    if (is_feed && !has_handler) {
+        _source_models[bright_id] = setter(fn);
+        return;
+    }
     var source = find_root(bright_id);
     var is_child;
     if (!is_child) {
@@ -1253,9 +1267,9 @@ function update_source_model(bright_id, fn){
         }, model);
     }
     function setter(model){
-        var user_data = is_function(fn) 
+        var user_data = has_handler 
             ? (fn(model) || model) : fn;
-        fix_userdata(user_data, _guards[model.id]);
+        fix_userdata(user_data, _guards[bright_id].source());
         return user_data;
     }
 }
