@@ -494,9 +494,13 @@ DarkGuard.prototype = {
             }
         }
         _guards[bright_id] = this;
-        _.each(DarkDOM.prototype, function(method, name){
-            this[name] = method;
-        }, target[0]);
+        if (!this._config.isSource) {
+            _.each(DarkDOM.prototype, function(method, name){
+                this[name] = method;
+            }, target[0]);
+        } else {
+            target[0].isDarkSource = true;
+        }
         this._darkRoots.push(target[0]);
         return bright_id;
     },
