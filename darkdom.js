@@ -982,6 +982,9 @@ function run_script(dark_model){
     if (typeof dark_model !== 'object') {
         return;
     }
+    if (Array.isArray(dark_model)) {
+        return dark_model.forEach(run_script);
+    }
     var content = dark_model.contentData || {};
     if (content._script) {
         new Function('', content._script)
