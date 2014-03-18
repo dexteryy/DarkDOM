@@ -884,7 +884,9 @@ function init_plugins($){
         this[name] = function(){
             var re;
             _.each(this, function(target){
-                re = method.apply(target, this);
+                if (name in target) {
+                    re = method.apply(target, this);
+                }
             }, arguments);
             return re === undefined ? this : re;
         };
