@@ -37,6 +37,7 @@ var _defaults = {
     _dark_models = {},
     _guards = {},
     _updaters = {},
+    _update_tm = 0,
     _tm = 0,
     _tuid = 0,
     _to_string = Object.prototype.toString,
@@ -493,6 +494,10 @@ DarkGuard.prototype = {
                 target.attr(MY_BRIGHT, bright_id);
             }
         }
+        if (!this._config.isSource
+                && (target[0].lastUpdateDarkDOM || 0) > _update_tm) {
+            return bright_id;
+        }
         _guards[bright_id] = this;
         if (!this._config.isSource) {
             _.each(DarkDOM.prototype, function(method, name){
@@ -502,6 +507,7 @@ DarkGuard.prototype = {
             target[0].isDarkSource = true;
         }
         this._darkRoots.push(target[0]);
+        target[0].lastUpdateDarkDOM = +new Date();
         return bright_id;
     },
 
@@ -519,6 +525,7 @@ DarkGuard.prototype = {
         _.each(DarkDOM.prototype, function(method, name){
             delete this[name];
         }, target[0]);
+        delete target[0].lastUpdateDarkDOM;
         clear(this._darkRoots, target[0]);
     },
 
@@ -603,32 +610,41 @@ DarkGuard.prototype = {
     },
 
     _scanComponents: function(dark_model, target){
-        var re = {}, cfg = this._config, opts = this._options;
+        var re = {}, cfg = this._config, opts = this._options,
+            specs = this._specs, non_contents = {};
         _.each(cfg.components, function(component, name){
-            var guard = component.createGuard({
-                contextModel: dark_model,
-                contextTarget: target,
-                isSource: cfg.isSource
-            });
-            var spec = this._specs[name];
-            if (typeof spec === 'string') {
-                guard.watch(spec);
-            } else if (spec) {
-                spec(guard);
+            if (!cfg.contents[name]) {
+                non_contents[name] = component;
+                return;
             }
-            guard.buffer();
-            if (cfg.contents[name]) {
-                guard._bufferContent();
-            } else {
-                re[name] = guard.releaseModel();
-            }
-        }, this);
+            var guard = auto_guard(component, name);
+            guard._bufferContent();
+        });
+        _.each(non_contents, function(component, name){
+            var guard = auto_guard(component, name);
+            re[name] = guard.releaseModel();
+        });
         dark_model.componentData = re;
         dark_model.contentData = this._scanContents(target, {
             scriptContext: !opts.disableScript && target[0],
             entireAsContent: opts.entireAsContent,
             noComs: !Object.keys(cfg.components).length
         });
+        function auto_guard(component, name){
+            var guard = component.createGuard({
+                contextModel: dark_model,
+                contextTarget: target,
+                isSource: cfg.isSource
+            });
+            var spec = specs[name];
+            if (typeof spec === 'string') {
+                guard.watch(spec);
+            } else if (spec) {
+                spec(guard);
+            }
+            guard.buffer();
+            return guard;
+        }
     },
 
     _scanContents: scan_contents,
@@ -1010,6 +1026,7 @@ function update_target(target, opt){
     if (!guard || !origin) {
         return;
     }
+    _update_tm = +new Date();
     var dark_modelset;
     if (opt.onlyStates) {
         dark_modelset = guard.scanRoot(target, opt);
