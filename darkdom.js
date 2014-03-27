@@ -312,8 +312,9 @@ DarkComponent.prototype = {
             opt = component;
         }
         opt = opt || {};
-        var dict = mix_setter(name, component, 
-            this._components, { execFunc: true });
+        var dict = mix_setter(name, component, this._components, { 
+            execFunc: true 
+        });
         if (opt.content) {
             _.mix(this._contents, dict);
         }
@@ -391,7 +392,9 @@ DarkGuard.prototype = {
      * @method
      */
     component: function(name, spec){
-        mix_setter(name, spec, this._specs);
+        mix_setter(name, spec, this._specs, {
+            enableExtension: true
+        });
         return this;
     },
 
@@ -610,8 +613,16 @@ DarkGuard.prototype = {
     },
 
     _scanComponents: function(dark_model, target){
-        var re = {}, cfg = this._config, opts = this._options,
-            specs = this._specs, non_contents = {};
+        var cfg = this._config, 
+            opts = this._options,
+            specs = this._specs, 
+            guard_opt = {
+                contextModel: dark_model,
+                contextTarget: target,
+                isSource: cfg.isSource
+            },
+            non_contents = {},
+            re = {};
         _.each(cfg.components, function(component, name){
             if (!cfg.contents[name]) {
                 non_contents[name] = component;
@@ -631,16 +642,15 @@ DarkGuard.prototype = {
             noComs: !Object.keys(cfg.components).length
         });
         function auto_guard(component, name){
-            var guard = component.createGuard({
-                contextModel: dark_model,
-                contextTarget: target,
-                isSource: cfg.isSource
-            });
+            var guard = component.createGuard(guard_opt);
             var spec = specs[name];
-            if (typeof spec === 'string') {
-                guard.watch(spec);
-            } else if (spec) {
-                spec(guard);
+            if (spec) {
+                var last_fn = spec[spec.length - 1];
+                if (typeof last_fn === 'string') {
+                    guard.watch(last_fn);
+                } else if (spec) {
+                    exec_queue(spec, [guard, target]);
+                }
             }
             guard.buffer();
             return guard;
@@ -1333,13 +1343,17 @@ function fix_userdata_component(component, name){
         dataset = [dataset];
     }
     var spec = this.specs[name];
-    spec = typeof spec !== 'string' && spec;
+    if (spec && typeof spec[spec.length - 1] === 'string') {
+        spec = false;
+    }
     dataset.forEach(function(data){
+        var fake_parent = $();
         var user_guard = this.createGuard({
+            contextTarget: fake_parent,
             isSource: true
         });
         if (spec) {
-            spec(user_guard);
+            exec_queue(spec, [user_guard, fake_parent]);
         }
         fix_userdata(data, user_guard);
     }, component);
@@ -1416,9 +1430,34 @@ function mix_setter(key, value, context, opt){
         if (opt.execFunc && is_function(value)) {
             value = value(this[key]);
         }
-        this[key] = re[key] = value;
+        if (opt.enableExtension) {
+            if (!this[key]) {
+                this[key] = [];
+            }
+            if (!re[key]) {
+                re[key] = [];
+            }
+            this[key].push(value);
+            re[key].push(value);
+        } else {
+            this[key] = re[key] = value;
+        }
     }, context);
     return re;
+}
+
+function exec_queue(queue, args){
+    if (queue.length > 1) {
+        queue.reduce(function(orig_fn, new_fn){
+            return function(){
+                var args = [].slice.call(arguments);
+                args[args.length] = orig_fn;
+                return new_fn.apply(this, args);
+            };
+        }).apply(this, args);
+    } else {
+        queue[0].apply(this, args);
+    }
 }
 
 /**
