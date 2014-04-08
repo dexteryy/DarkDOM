@@ -49,6 +49,7 @@ var _defaults = {
     RE_CONTENT_COM = new RegExp('\\{\\{' 
         + MY_BRIGHT + '=(\\w+)\\}\\}', 'g'),
     RE_EVENT_SEL = /(\S+)\s*(.*)/,
+    RE_INNER = /(<.+?>)(.*)(<.+>)/,
     RE_ATTR_ID = /(\sid=['"])[^"']*/,
     RE_ATTR_MARK = new RegExp('(' + IS_BRIGHT + "=['\"])[^'\"]*"),
     RE_HTMLTAG = /^\s*(<[\w\-]+)([^>]*)>/;
@@ -350,7 +351,12 @@ DarkComponent.prototype = {
      * @method
      */
     createGuard: function(opt){
-        return new exports.DarkGuard(_.mix({
+        // @hotspot
+        opt = opt || {};
+        return new exports.DarkGuard({
+            contextModel: opt.contextModel,
+            contextTarget: opt.contextTarget,
+            isSource: opt.isSource,
             stateGetters: this._stateGetters,
             stateSetters: this._stateSetters,
             components: this._components,
@@ -358,7 +364,7 @@ DarkComponent.prototype = {
             updaters: this._updaters,
             events: this._events,
             options: this._config
-        }, opt));
+        });
     }
 
 };
@@ -372,7 +378,7 @@ function DarkGuard(opt){
     this._stateGetters = Object.create(opt.stateGetters);
     this._stateSetters = Object.create(opt.stateSetters);
     this._options = opt.options;
-    this._config = _.mix({}, opt);
+    this._config = opt;
     this._darkRoots = [];
     this._specs = {};
     this._buffer = [];
@@ -487,51 +493,52 @@ DarkGuard.prototype = {
         }, this);
     },
 
-    registerRoot: function(target){
-        target = $(target);
-        if (target.attr(IS_BRIGHT)) {
+    registerRoot: function(elm){
+        // @hotspot
+        if (elm.getAttribute(IS_BRIGHT)) {
             return;
         }
-        var bright_id = target.attr(MY_BRIGHT);
+        var is_source = this._config.isSource;
+        var bright_id = elm.getAttribute(MY_BRIGHT);
         if (!bright_id) {
             bright_id = uuid();
-            if (!this._config.isSource) {
-                target.attr(MY_BRIGHT, bright_id);
+            if (!is_source) {
+                elm.setAttribute(MY_BRIGHT, bright_id);
             }
         }
-        if (!this._config.isSource
-                && (target[0].lastUpdateDarkDOM || 0) > _update_tm) {
+        if (!is_source
+                && (elm.lastUpdateDarkDOM || 0) > _update_tm) {
             return bright_id;
         }
         _guards[bright_id] = this;
-        if (!this._config.isSource) {
-            _.each(DarkDOM.prototype, function(method, name){
-                this[name] = method;
-            }, target[0]);
+        if (!is_source) {
+            var dom_api = DarkDOM.prototype;
+            for (var name in dom_api) {
+                elm[name] = dom_api[name];
+            }
         } else {
-            target[0].isDarkSource = true;
+            elm.isDarkSource = true;
         }
-        this._darkRoots.push(target[0]);
-        target[0].lastUpdateDarkDOM = +new Date();
+        this._darkRoots.push(elm);
+        elm.lastUpdateDarkDOM = +new Date();
         return bright_id;
     },
 
     /**
      * @method
      */
-    unregisterRoot: function(target){
-        target = $(target);
-        var bright_id = target.attr(MY_BRIGHT);
+    unregisterRoot: function(elm){
+        var bright_id = elm.getAttribute(MY_BRIGHT);
         if (this !== _guards[bright_id]) {
             return;
         }
-        target.removeAttr(MY_BRIGHT);
+        elm.removeAttribute(MY_BRIGHT);
         unregister(bright_id);
         _.each(DarkDOM.prototype, function(method, name){
             delete this[name];
-        }, target[0]);
-        delete target[0].lastUpdateDarkDOM;
-        clear(this._darkRoots, target[0]);
+        }, elm);
+        delete elm.lastUpdateDarkDOM;
+        clear(this._darkRoots, elm);
     },
 
     /**
@@ -544,7 +551,7 @@ DarkGuard.prototype = {
             return this;
         }
         target.trigger('darkdom:willMount');
-        var dark_model = render_root(this.scanRoot(target));
+        var dark_model = render_root(this.scanRoot(target[0]));
         target.hide().after(this.render(dark_model));
         this._listen(dark_model);
         target[0].isMountedDarkDOM = true;
@@ -570,28 +577,29 @@ DarkGuard.prototype = {
         delete _dark_models[bright_id];
     },
 
-    bufferRoot: function(target){
-        target = $(target);
-        if (target.attr(IS_BRIGHT)) {
+    bufferRoot: function(elm){
+        // @hotspot
+        if (elm.getAttribute(IS_BRIGHT)) {
             return this;
         }
-        var dark_model = this.scanRoot(target); 
+        var dark_model = this.scanRoot(elm); 
         this._bufferModel(dark_model);
-        target[0].isMountedDarkDOM = true;
+        elm.isMountedDarkDOM = true;
         return this;
     },
 
-    updateRoot: function(target){
-        $(target).updateDarkDOM();
+    updateRoot: function(elm){
+        elm.updateDarkDOM();
         return this;
     },
 
-    scanRoot: function(target, opt){
+    scanRoot: function(elm, opt){
+        // @hotspot
         opt = opt || {};
         var is_source = this._config.isSource;
         var bright_id = is_source 
-            ? this.registerRoot(target)
-            : target.attr(MY_BRIGHT);
+            ? this.registerRoot(elm)
+            : elm.getAttribute(MY_BRIGHT);
         var dark_model = {
             id: bright_id,
         };
@@ -599,6 +607,7 @@ DarkGuard.prototype = {
             dark_model.context = this._config.contextModel;
         }
         dark_model.state = {};
+        var target = $(elm);
         _.each(this._stateGetters, function(getter, name){
             this[name] = read_state(target, getter);
         }, dark_model.state);
@@ -822,16 +831,23 @@ DarkGuard.prototype = {
     },
 
     createSource: function(opt){
-        this._sourceGuard = new exports.DarkGuard(_.merge({
-            isSource: true,
-            contextTarget: null,
-            options: _.merge({
-                entireAsContent: opt.options.sourceAsContent 
-                    || opt.options.entireAsContent,
-                enableSource: false 
-            }, opt.options)
-        }, opt));
-        return this._sourceGuard;
+        // @hotspot
+        var i, options = opt.options,
+            source_options = {};
+        for (i in options) {
+            source_options[i] = options[i];
+        }
+        source_options.entireAsContent = options.sourceAsContent 
+            || options.entireAsContent;
+        source_options.enableSource = false;
+        var source_opt = {};
+        for (i in opt) {
+            source_opt[i] = opt[i];
+        }
+        source_opt.isSource = true;
+        source_opt.contextTarget = null;
+        source_opt.options = source_options;
+        return this._sourceGuard = new exports.DarkGuard(source_opt);
     },
 
     scanSource: function(bright_id, selector){
@@ -951,7 +967,7 @@ function unregister(bright_id){
     delete _updaters[bright_id];
 }
 
-function scan_contents(target, opt){
+function scan_contents(elm, opt){
     opt = opt || {};
     var data = { 
         text: '',
@@ -960,10 +976,11 @@ function scan_contents(target, opt){
         _context: opt.scriptContext,
         _hasOuter: opt.entireAsContent
     };
-    if (!target) {
+    if (!elm) {
         return data;
     }
     opt.data = data;
+    var target = $(elm);
     if (data._hasOuter) {
         content_spider.call(opt, 
             target.clone().removeAttr(MY_BRIGHT));
@@ -974,32 +991,32 @@ function scan_contents(target, opt){
 }
 
 function content_spider(content){
+    // @hotspot
     var data = this.data;
-    content = $(content);
-    if (content[0].nodeType !== 1) {
-        if (content[0].nodeType === 3) {
-            content = content.text();
+    if (content.nodeType !== 1) {
+        if (content.nodeType === 3) {
+            content = content.textContent || content.nodeValue;
             if (/\S/.test(content)) {
                 data.text += content;
             }
         }
         return;
     } else if (data._context
-            && content[0].nodeName === 'SCRIPT'
-            && content.attr('type') === 'text/darkscript') {
-        data._script += content[0].innerHTML;
+            && content.nodeName === 'SCRIPT'
+            && content.getAttribute('type') === 'text/darkscript') {
+        data._script += content.innerHTML;
         return;
     }
-    var mark = content[0].isMountedDarkDOM;
+    var mark = content.isMountedDarkDOM;
     if (this.noComs 
             && (!this.scriptContext
-                || !content.find('script').length)) {
+                || !content.getElementsByTagName('script').length)) {
         if (!mark) {
-            data.text += content[0].outerHTML || '';
+            data.text += content.outerHTML || '';
         }
         return;
     }
-    var buffer_id = content.attr(MY_BRIGHT),
+    var buffer_id = content.getAttribute(MY_BRIGHT),
         buffer = _content_buffer[buffer_id];
     delete _content_buffer[buffer_id];
     if (buffer) {
@@ -1007,8 +1024,8 @@ function content_spider(content){
         data.text += '{{' + MY_BRIGHT + '=' + buffer_id + '}}';
     } else if (!mark) {
         var childs_data = scan_contents(content);
-        data.text += content.clone()
-            .html(childs_data.text)[0].outerHTML || '';
+        data.text += (content.outerHTML || '')
+            .replace(RE_INNER, '$1' + childs_data.text + '$3');
         _.mix(data._index, childs_data._index);
     }
 }
@@ -1029,10 +1046,9 @@ function run_script(dark_model){
     _.each(dark_model.componentData || {}, run_script);
 }
 
-function update_target(target, opt){
-    target = $(target);
-    var bright_id = target.attr(MY_BRIGHT);
-    if (!$.contains(document.body, target[0])) {
+function update_target(elm, opt){
+    var bright_id = elm.getAttribute(MY_BRIGHT);
+    if (!$.contains(document.body, elm)) {
         if (!opt.onlyStates) {
             trigger_update(bright_id, null, {
                 type: 'remove'
@@ -1048,14 +1064,14 @@ function update_target(target, opt){
     _update_tm = +new Date();
     var dark_modelset;
     if (opt.onlyStates) {
-        dark_modelset = guard.scanRoot(target, opt);
+        dark_modelset = guard.scanRoot(elm, opt);
         _.merge(dark_modelset, origin);
         compare_states(origin, dark_modelset);
         if (origin.state) {
             _.mix(origin.state, dark_modelset.state);
         }
     } else {
-        dark_modelset = guard.bufferRoot(target)
+        dark_modelset = guard.bufferRoot(elm)
             .renderBuffer()
             .releaseModel();
         compare_model(origin, 
