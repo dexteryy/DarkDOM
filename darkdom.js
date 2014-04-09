@@ -205,7 +205,7 @@ DarkDOM.prototype = {
      * @method
      */
     updateDarkSource: function(){
-        var bright_id = $(this).attr(MY_BRIGHT);
+        var bright_id = this.getAttribute(MY_BRIGHT);
         delete _source_models[bright_id];
         this.updateDarkDOM();
     },
@@ -230,7 +230,7 @@ DarkDOM.prototype = {
      * @param {Function} fn - accepts {@link SourceModel}
      */
     feedDarkDOM: function(fn){
-        var bright_id = $(this).attr(MY_BRIGHT);
+        var bright_id = this.getAttribute(MY_BRIGHT);
         update_source_model(bright_id, fn, true);
     },
 
@@ -252,8 +252,7 @@ DarkDOM.prototype = {
      * @param {Function} handler - accepts {@link DarkModelChanges}
      */
     responseDarkDOM: function(subject, handler){
-        var target = $(this),
-            bright_id = target.attr(MY_BRIGHT),
+        var bright_id = this.getAttribute(MY_BRIGHT),
             updaters = _updaters[bright_id];
         if (!updaters) {
             updaters = _updaters[bright_id] = {};
@@ -503,9 +502,9 @@ DarkGuard.prototype = {
     },
 
     gc: function(bright_id){
-        _.each(this._darkRoots, function(target){
-            if ($(target).attr(MY_BRIGHT) === bright_id) {
-                this.unregisterRoot(target);
+        _.each(this._darkRoots, function(elm){
+            if (elm.getAttribute(MY_BRIGHT) === bright_id) {
+                this.unregisterRoot(elm);
                 return false;
             }
         }, this);
@@ -556,14 +555,14 @@ DarkGuard.prototype = {
         clear(this._darkRoots, elm);
     },
 
-    mountRoot: function(target){
-        target = $(target);
-        if (target.attr(IS_BRIGHT)
-                || target[0].isMountedDarkDOM) {
+    mountRoot: function(elm){
+        if (elm.getAttribute(IS_BRIGHT)
+                || elm.isMountedDarkDOM) {
             return this;
         }
+        var target = $(elm);
         target.trigger('darkdom:willMount');
-        var dark_model = render_root(this.scanRoot(target[0]));
+        var dark_model = render_root(this.scanRoot(target));
         target.hide().after(this.render(dark_model));
         this._listen(dark_model);
         target[0].isMountedDarkDOM = true;
@@ -573,16 +572,15 @@ DarkGuard.prototype = {
         return this;
     },
 
-    unmountRoot: function(target){
-        target = $(target);
-        var bright_id = target.attr(MY_BRIGHT);
-        target.find('[' + MY_BRIGHT + ']').forEach(function(child){
-            var child_id = $(child).attr(MY_BRIGHT);
+    unmountRoot: function(elm){
+        var bright_id = elm.getAttribute(MY_BRIGHT);
+        $('[' + MY_BRIGHT + ']', elm).forEach(function(child){
+            var child_id = child.getAttribute(MY_BRIGHT);
             var guard = _guards[child_id];
             guard.unregisterRoot(child);
         }, _dark_models);
         $('#' + bright_id).remove();
-        delete target[0].isMountedDarkDOM;
+        delete elm.isMountedDarkDOM;
         delete _dark_models[bright_id];
     },
 
@@ -602,13 +600,14 @@ DarkGuard.prototype = {
         return this;
     },
 
-    scanRoot: function(elm, opt){
+    scanRoot: function(target, opt){
         // @hotspot
+        target = $(target);
         opt = opt || {};
         var is_source = this._config.isSource;
         var bright_id = is_source 
-            ? this.registerRoot(elm)
-            : elm.getAttribute(MY_BRIGHT);
+            ? this.registerRoot(target[0])
+            : target.attr(MY_BRIGHT);
         var dark_model = {
             id: bright_id,
         };
@@ -616,7 +615,6 @@ DarkGuard.prototype = {
             dark_model.context = this._config.contextModel;
         }
         dark_model.state = {};
-        var target = $(elm);
         _.each(this._stateGetters, function(getter, name){
             this[name] = read_state(target, getter);
         }, dark_model.state);
@@ -916,11 +914,11 @@ DarkGuard.getDarkByCustomId = function(custom_id){
     var re;
     _.each($('body #' + custom_id), function(node){
         if (!this(node, '[dd-autogen] #' + custom_id)) {
-            re = node;
+            re = $(node);
             return false;
         }
     }, $.matches);
-    return re;
+    return re || $();
 };
 
 /**
@@ -928,8 +926,8 @@ DarkGuard.getDarkByCustomId = function(custom_id){
  */
 DarkGuard.gc = function(){
     var current = {};
-    $('[' + MY_BRIGHT + ']').forEach(function(target){
-        this[$(target).attr(MY_BRIGHT)] = true;
+    $('[' + MY_BRIGHT + ']').forEach(function(elm){
+        this[elm.getAttribute(MY_BRIGHT)] = true;
     }, current);
     Object.keys(_guards).forEach(function(bright_id){
         if (this[bright_id] || $('#' + bright_id)[0]) {
@@ -992,7 +990,7 @@ function unregister(bright_id){
     delete _updaters[bright_id];
 }
 
-function scan_contents(elm, opt){
+function scan_contents(target, opt){
     opt = opt || {};
     var data = { 
         text: '',
@@ -1001,14 +999,13 @@ function scan_contents(elm, opt){
         _context: opt.scriptContext,
         _hasOuter: opt.entireAsContent
     };
-    if (!elm) {
+    if (!target) {
         return data;
     }
     opt.data = data;
-    var target = $(elm);
     if (data._hasOuter) {
         content_spider.call(opt, 
-            target.clone().removeAttr(MY_BRIGHT));
+            target.clone().removeAttr(MY_BRIGHT)[0]);
     } else {
         target.contents().forEach(content_spider, opt);
     }
@@ -1048,7 +1045,7 @@ function content_spider(content){
         data._index[buffer_id] = buffer;
         data.text += '{{' + MY_BRIGHT + '=' + buffer_id + '}}';
     } else if (!mark) {
-        var childs_data = scan_contents(content);
+        var childs_data = scan_contents($(content));
         data.text += (content.outerHTML || '')
             .replace(RE_INNER, '$1' + childs_data.text + '$3');
         _.mix(data._index, childs_data._index);
