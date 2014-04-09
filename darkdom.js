@@ -395,9 +395,6 @@ function DarkGuard(opt){
     this._buffer = [];
     this._events = {};
     this._sourceGuard = null;
-    if (this._options.enableSource) {
-        this.createSource(opt);
-    }
 }
 
 DarkGuard.prototype = {
@@ -432,7 +429,8 @@ DarkGuard.prototype = {
         if (!this._options.enableSource) {
             return;
         }
-        return this._sourceGuard;
+        return this._sourceGuard
+            || (this._sourceGuard = this.createSource(this._config));
     },
 
     /**
@@ -624,7 +622,7 @@ DarkGuard.prototype = {
         if (!is_source
                 && (dark_model.state.source 
                     || _source_models[bright_id])
-                && this._sourceGuard) {
+                && this._options.enableSource) {
             this._mergeSource(dark_model, opt);
         }
         return dark_model;
@@ -859,14 +857,14 @@ DarkGuard.prototype = {
         source_opt.isSource = true;
         source_opt.contextTarget = null;
         source_opt.options = source_options;
-        return this._sourceGuard = new exports.DarkGuard(source_opt);
+        return new exports.DarkGuard(source_opt);
     },
 
     scanSource: function(bright_id, selector){
         if (!selector) {
             return;
         }
-        var guard = this._sourceGuard;
+        var guard = this.source();
         guard._darkRoots.length = 0;
         var targets = guard.selectTargets(selector);
         guard.watch(targets);
