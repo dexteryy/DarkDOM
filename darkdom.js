@@ -236,6 +236,18 @@ DarkDOM.prototype = {
 
     /**
      * @method
+     */
+    forwardDarkDOM: function(selector, handler){
+        var bright_id = this.getAttribute(MY_BRIGHT);
+        var guard = _guards[bright_id];
+        var subject = bright_id + '|' + selector;
+        mix_setter(selector, subject, guard._config.events);
+        guard.forward(subject, handler);
+        guard.registerEvents($('#' + bright_id), subject, selector);
+    },
+
+    /**
+     * @method
      * @param {UpdateEventName} subject
      * @param {Function} handler - accepts {@link DarkModelChanges}
      */
@@ -272,7 +284,7 @@ function DarkComponent(opt){
 DarkComponent.prototype = {
 
     /**
-     * @method
+     * @public
      * @param {object}
      */
     set: function(opt){
@@ -284,7 +296,7 @@ DarkComponent.prototype = {
     },
 
     /**
-     * @method
+     * @public
      * @param {string|object} name
      * @param {(function|string)} getter
      * @param {(function|string)} setter
@@ -308,7 +320,7 @@ DarkComponent.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     contain: function(name, component, opt){
         if (typeof name === 'object') {
@@ -325,7 +337,7 @@ DarkComponent.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     forward: function(selector, subject){
         mix_setter(selector, subject, this._events);
@@ -333,7 +345,7 @@ DarkComponent.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     response: function(subject, handler){
         this._updaters[subject] = handler;
@@ -341,14 +353,14 @@ DarkComponent.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     component: function(name){
         return this._components[name];
     },
 
     /**
-     * @method
+     * @public
      */
     createGuard: function(opt){
         // @hotspot
@@ -397,7 +409,7 @@ DarkGuard.prototype = {
     state: DarkComponent.prototype.state,
 
     /**
-     * @method
+     * @public
      */
     component: function(name, spec){
         mix_setter(name, spec, this._specs, {
@@ -407,7 +419,7 @@ DarkGuard.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     forward: function(subject, selector){
         mix_setter(subject, selector, this._events);
@@ -415,7 +427,7 @@ DarkGuard.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     source: function(){
         if (!this._options.enableSource) {
@@ -425,21 +437,21 @@ DarkGuard.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     stateGetter: function(name){
         return this._stateGetters[name];
     },
 
     /**
-     * @method
+     * @public
      */
     stateSetter: function(name){
         return this._stateSetters[name];
     },
 
     /**
-     * @method
+     * @public
      */
     watch: function(targets){
         this.selectTargets(targets)
@@ -448,7 +460,7 @@ DarkGuard.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     unwatch: function(targets){
         targets = targets 
@@ -459,7 +471,7 @@ DarkGuard.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     mount: function(){
         this._darkRoots.forEach(this.mountRoot, this);
@@ -467,18 +479,24 @@ DarkGuard.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     unmount: function(){
         this._darkRoots.forEach(this.unmountRoot, this);
         return this;
     },
 
+    /**
+     * @public
+     */
     buffer: function(){
         this._darkRoots.forEach(this.bufferRoot, this);
         return this;
     },
 
+    /**
+     * @public
+     */
     update: function(){
         this._darkRoots.forEach(this.updateRoot, this);
         return this;
@@ -524,9 +542,6 @@ DarkGuard.prototype = {
         return bright_id;
     },
 
-    /**
-     * @method
-     */
     unregisterRoot: function(elm){
         var bright_id = elm.getAttribute(MY_BRIGHT);
         if (this !== _guards[bright_id]) {
@@ -541,9 +556,6 @@ DarkGuard.prototype = {
         clear(this._darkRoots, elm);
     },
 
-    /**
-     * @method
-     */
     mountRoot: function(target){
         target = $(target);
         if (target.attr(IS_BRIGHT)
@@ -561,9 +573,6 @@ DarkGuard.prototype = {
         return this;
     },
 
-    /**
-     * method
-     */
     unmountRoot: function(target){
         target = $(target);
         var bright_id = target.attr(MY_BRIGHT);
@@ -783,13 +792,18 @@ DarkGuard.prototype = {
         }
     },
 
-    registerEvents: function(bright_root){
+    registerEvents: function(bright_root, subject, selector){
         var bright_id = bright_root.attr('id'),
             guard = _guards[bright_id];
         if (!guard) {
             return;
         }
-        _.each(guard._config.events, function(subject, bright_sel){
+        if (selector) {
+            register.call(bright_root, subject, selector);
+        } else {
+            _.each(guard._config.events, register, bright_root);
+        }
+        function register(subject, bright_sel){
             bright_sel = RE_EVENT_SEL.exec(bright_sel);
             this.on(bright_sel[1], function(e){
                 if (_matches_selector(e.target, bright_sel[2])) {
@@ -797,7 +811,7 @@ DarkGuard.prototype = {
                 }
                 return false;
             });
-        }, bright_root);
+        }
     },
 
     triggerEvent: function(bright_id, subject, e){
@@ -824,7 +838,7 @@ DarkGuard.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     isSource: function(){
         return this._config.isSource;
@@ -896,6 +910,17 @@ DarkGuard.prototype = {
  */
 DarkGuard.getDarkById = function(bright_id){
     return $('[' + MY_BRIGHT + '="' + bright_id + '"]');
+};
+
+DarkGuard.getDarkByCustomId = function(custom_id){
+    var re;
+    _.each($('body #' + custom_id), function(node){
+        if (!this(node, '[dd-autogen] #' + custom_id)) {
+            re = node;
+            return false;
+        }
+    }, $.matches);
+    return re;
 };
 
 /**
@@ -1510,6 +1535,12 @@ exports.DarkGuard = DarkGuard;
  * @see module:darkdom.DarkGuard.getDarkById
  */
 exports.getDarkById = DarkGuard.getDarkById;
+/** 
+ * @method
+ * @borrows DarkGuard.getDarkByCustomId
+ * @see module:darkdom.DarkGuard.getDarkByCustomId
+ */
+exports.getDarkByCustomId = DarkGuard.getDarkByCustomId;
 /** 
  * @method
  * @borrows DarkGuard.gc
