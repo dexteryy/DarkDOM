@@ -75,7 +75,7 @@ function DarkDOM(){}
 DarkDOM.prototype = {
 
     /**
-     * @method
+     * @public
      * @returns {DarkGuard} 
      */
     darkGuard: function(){
@@ -83,7 +83,7 @@ DarkDOM.prototype = {
     },
 
     /**
-     * @method
+     * @public
      * @see module:darkdom.DarkGuard#mount
      * @see module:darkdom.DarkGuard#mountRoot
      */
@@ -95,7 +95,7 @@ DarkDOM.prototype = {
     },
 
     /**
-     * @method
+     * @public
      * @see module:darkdom.DarkGuard#unmount
      * @see module:darkdom.DarkGuard#unmountRoot
      */
@@ -111,7 +111,7 @@ DarkDOM.prototype = {
      * module:darkdom.DarkDOM#unmountDarkDOM} & [deregister]{@link 
      * module:darkdom.DarkGuard#unregisterRoot}
      *
-     * @method
+     * @public
      * @see module:darkdom.DarkGuard#unmount
      * @see module:darkdom.DarkGuard#unwatch
      * @see module:darkdom.DarkGuard#unmountRoot
@@ -150,7 +150,7 @@ DarkDOM.prototype = {
      * );
      * console.log($('.x-folder').getDarkState('isFolded')); // (B3)
      *
-     * @method
+     * @public
      * @param {String} name - 
      * @see module:darkdom.DarkComponent#state
      * @see module:darkdom.DarkGuard#state
@@ -163,7 +163,7 @@ DarkDOM.prototype = {
     },
 
     /**
-     * @method
+     * @public
      * @param {String} name - 
      * @param {String|Function} value - 
      * @param {String} opt - 
@@ -185,24 +185,27 @@ DarkDOM.prototype = {
      * High-performance version of [DarkDOM#updateDarkDOM]{@link 
      * module:darkdom.DarkDOM#updateDarkDOM}
      *
-     * @method
+     * @public
      */
-    updateDarkStates: function(){
-        update_target(this, {
+    updateDarkStates: function(opt){
+        update_target(this, _.merge({
             onlyStates: true
-        });
+        }, opt));
     },
 
     /**
-     * @method
+     * @public
      */
-    updateDarkDOM: function(){
-        update_target(this, {});
-        exports.DarkGuard.gc();
+    updateDarkDOM: function(opt){
+        opt = opt || {};
+        update_target(this, opt);
+        if (!opt.ignoreRender) {
+            exports.DarkGuard.gc();
+        }
     },
 
     /**
-     * @method
+     * @public
      */
     updateDarkSource: function(){
         var bright_id = this.getAttribute(MY_BRIGHT);
@@ -226,7 +229,7 @@ DarkDOM.prototype = {
      *     }
      * }).end().updateDarkDOM();
      *
-     * @method
+     * @public
      * @param {Function} fn - accepts {@link SourceModel}
      */
     feedDarkDOM: function(fn){
@@ -235,7 +238,7 @@ DarkDOM.prototype = {
     },
 
     /**
-     * @method
+     * @public
      */
     forwardDarkDOM: function(selector, handler){
         var bright_id = this.getAttribute(MY_BRIGHT);
@@ -247,7 +250,7 @@ DarkDOM.prototype = {
     },
 
     /**
-     * @method
+     * @public
      * @param {UpdateEventName} subject
      * @param {Function} handler - accepts {@link DarkModelChanges}
      */
@@ -1074,7 +1077,7 @@ function run_script(dark_model){
 function update_target(elm, opt){
     var bright_id = elm.getAttribute(MY_BRIGHT);
     if (!$.contains(document.body, elm)) {
-        if (!opt.onlyStates) {
+        if (!opt.onlyStates && !opt.ignoreRender) {
             trigger_update(bright_id, null, {
                 type: 'remove'
             });
@@ -1091,7 +1094,9 @@ function update_target(elm, opt){
     if (opt.onlyStates) {
         dark_modelset = guard.scanRoot(elm, opt);
         _.merge(dark_modelset, origin);
-        compare_states(origin, dark_modelset);
+        if (!opt.ignoreRender) {
+            compare_states(origin, dark_modelset);
+        }
         if (origin.state) {
             _.mix(origin.state, dark_modelset.state);
         }
@@ -1099,6 +1104,9 @@ function update_target(elm, opt){
         dark_modelset = guard.bufferRoot(elm)
             .renderBuffer()
             .releaseModel();
+        if (opt.ignoreRender) {
+            return;
+        }
         compare_model(origin, 
             _is_array(dark_modelset) 
                 ? dark_modelset[0] : dark_modelset);
