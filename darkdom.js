@@ -49,7 +49,7 @@ var _defaults = {
     RE_CONTENT_COM = new RegExp('\\{\\{' 
         + MY_BRIGHT + '=(\\w+)\\}\\}', 'g'),
     RE_EVENT_SEL = /(\S+)\s*(.*)/,
-    RE_INNER = /(<.+?>)(.*)(<.+>)/,
+    RE_INNER = /(<[\s\S]+?>)([\s\S]*)(<.+>)/,
     RE_ATTR_ID = /(\sid=['"])[^"']*/,
     RE_ATTR_MARK = new RegExp('(' + IS_BRIGHT + "=['\"])[^'\"]*"),
     RE_HTMLTAG = /^\s*(<[\w\-]+)([^>]*)>/;
@@ -1044,9 +1044,14 @@ function content_spider(content){
         data.text += '{{' + MY_BRIGHT + '=' + buffer_id + '}}';
     } else if (!mark) {
         var childs_data = scan_contents($(content));
-        data.text += (content.outerHTML || '')
-            .replace(RE_INNER, '$1' + childs_data.text + '$3');
-        _.mix(data._index, childs_data._index);
+        var content_html = content.outerHTML || '';
+        if (is_empty_object(childs_data._index)) {
+            data.text += content_html;
+        } else {
+            data.text += content_html.replace(RE_INNER, 
+                '$1' + childs_data.text + '$3');
+            _.mix(data._index, childs_data._index);
+        }
     }
 }
 
