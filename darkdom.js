@@ -272,15 +272,16 @@ DarkDOM.prototype = {
  * @param {object}
  */
 function DarkComponent(opt){
-    opt = opt || {};
-    this._config = _.config({}, opt, _defaults);
     this._stateGetters = _.copy(_default_states);
     this._stateSetters = _.copy(_default_states);
     this._components = {};
     this._contents = {};
     this._updaters = {};
     this._events = {};
-    this.set(this._config);
+    this._guardCache = null;
+    this._specs = {};
+    this._config = {};
+    this.set(opt || {});
 }
 
 DarkComponent.prototype = {
@@ -293,7 +294,85 @@ DarkComponent.prototype = {
         if (!opt) {
             return this;
         }
-        _.config(this._config, opt, this._defaults);
+        _.config(this._config, opt, _defaults);
+        if (typeof opt.state !== 'undefined') {
+            this.state(opt.state);
+        }
+        if (typeof opt.component !== 'undefined') {
+            this.contain(opt.component);
+        }
+        if (typeof opt.forward !== 'undefined') {
+            this.forward(opt.forward);
+        }
+        if (typeof opt.response !== 'undefined') {
+            this.response(opt.response);
+        }
+        return this;
+    },
+
+    /**
+     * @public
+     */
+    guard: function(selector, cfg, opt){
+        var spec;
+        if (typeof cfg === 'object') {
+            opt = cfg;
+            spec = function(guard){
+                if (typeof cfg.state !== 'undefined') {
+                    guard.state(cfg.state);
+                }
+                if (typeof cfg.component !== 'undefined') {
+                    guard.component(cfg.component);
+                }
+                if (typeof cfg.forward !== 'undefined') {
+                    guard.forward(cfg.forward);
+                }
+                if (typeof cfg.sourceState !== 'undefined') {
+                    guard.source().state(cfg.sourceState);
+                }
+                if (typeof cfg.sourceComponent !== 'undefined') {
+                    guard.source().component(cfg.sourceComponent);
+                }
+            };
+        } else if (is_function(cfg)) {
+            spec = cfg;
+        }
+        opt = opt || {};
+        var specs = this._specs;
+        if (!specs[selector]) {
+            specs[selector] = [];
+        }
+        if (opt.override) {
+            specs[selector].length = 0;
+        }
+        if (spec) {
+            specs[selector].push(spec);
+        }
+        return this;
+    },
+
+    /**
+     * @public
+     */
+    seek: function(parent){
+        var guard, is_new_guard;
+        if (parent) {
+            guard = this.createGuard({
+                contextTarget: parent
+            });
+            is_new_guard = true;
+        } else {
+            if (!this._guardCache) {
+                this._guardCache = this.createGuard();
+                is_new_guard = true;
+            }
+            guard = this._guardCache;
+        }
+        if (is_new_guard) {
+            this._applyDefaultSpecs(guard);
+        }
+        this._applyDefaultWatch(guard);
+        guard.mount();
         return this;
     },
 
@@ -350,7 +429,7 @@ DarkComponent.prototype = {
      * @public
      */
     response: function(subject, handler){
-        this._updaters[subject] = handler;
+        mix_setter(subject, handler, this._updaters);
         return this;
     },
 
@@ -379,6 +458,22 @@ DarkComponent.prototype = {
             events: this._events,
             options: this._config
         });
+    },
+
+    _applyDefaultSpecs: function(guard){
+        _.each(this._specs, function(specs){
+            specs.forEach(function(spec){
+                spec(guard);
+            });
+        });
+        return this;
+    },
+
+    _applyDefaultWatch: function(guard){
+        _.each(this._specs, function(specs, selector){
+            guard.watch(selector);
+        });
+        return this;
     }
 
 };
@@ -670,6 +765,9 @@ DarkGuard.prototype = {
                 } else if (spec) {
                     exec_queue(spec, [guard, target]);
                 }
+            } else {
+                component._applyDefaultSpecs(guard)
+                    ._applyDefaultWatch(guard);
             }
             guard.buffer();
             return guard;
@@ -1111,6 +1209,7 @@ function update_target(elm, opt){
             _is_array(dark_modelset) 
                 ? dark_modelset[0] : dark_modelset);
     }
+    _update_tm = 0;
 }
 
 function compare_model(origin, new_model){
@@ -1486,13 +1585,19 @@ function is_empty_object(obj) {
 }
 
 function mix_setter(key, value, context, opt){
+    var re = {};
+    if (key === false) {
+        for (var i in context) {
+            delete context[i];
+        }
+        return re;
+    }
     opt = opt || {};
     var dict = key;
     if (typeof dict !== 'object') {
         dict = {};
         dict[key] = value;
     }
-    var re = {};
     _.each(dict, function(value, key){
         if (opt.execFunc && is_function(value)) {
             value = value(this[key]);
