@@ -1357,10 +1357,11 @@ function merge_source(dark_model, source_model, context){
     var content = dark_model.contentData 
         || (dark_model.contentData = scan_contents());
     var source_content = source_model.contentData;
-    if (source_content && source_content.text
-            && (!content.text 
-                || content._hasOuter)) {
-        content.text = source_content.text; 
+    if (!content.text) {
+        content.text = '';
+    }
+    if (source_content && source_content.text) {
+        content.text += source_content.text; 
         _.mix(content._index, source_content._index);
     }
     // @note

@@ -14,21 +14,21 @@ title: DarkDOM
 
 * Learning DarkDOM Visually
 
-  [![](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom_thumbnail.png)](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom.pdf)
+  [![](http://dexteryy.github.io/cardkit-demo-darkdom/darkdom_thumbnail.png)](http://dexteryy.github.io/cardkit-demo-darkdom/darkdom.pdf)
 
-  * [PDF version](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom.pdf)
-  * [PNG version](http://douban-f2e.github.io/cardkit-demo-darkdom/darkdom.png)
-  * [Source code](https://github.com/douban-f2e/cardkit-demo-darkdom)
-  * [Online demo (folder)](http://douban-f2e.github.io/cardkit-demo-darkdom/folder.html)
-  * [Online demo (list)](http://douban-f2e.github.io/cardkit-demo-darkdom/index.html)
-  * [Online demo (deck)](http://douban-f2e.github.io/cardkit-demo-darkdom/deck.html)
+  * [PDF version](http://dexteryy.github.io/cardkit-demo-darkdom/darkdom.pdf)
+  * [PNG version](http://dexteryy.github.io/cardkit-demo-darkdom/darkdom.png)
+  * [Source code](https://github.com/dexteryy/cardkit-demo-darkdom)
+  * [Online demo (folder)](http://dexteryy.github.io/cardkit-demo-darkdom/folder.html)
+  * [Online demo (list)](http://dexteryy.github.io/cardkit-demo-darkdom/index.html)
+  * [Online demo (deck)](http://dexteryy.github.io/cardkit-demo-darkdom/deck.html)
 
 * codepen
   * [http://codepen.io/dexteryy/pen/niuCG](http://codepen.io/dexteryy/pen/niuCG)
 
 ## Components Library
 
-> [CardKit](https://github.com/douban-f2e/CardKit) is a mobile UI library provides a series of building blocks to help you build mobile web apps quickly and simply, or transfer entire website to mobile-first web app for touch devices. 
+> [CardKit](https://github.com/dexteryy/CardKit) is a mobile UI library provides a series of building blocks to help you build mobile web apps quickly and simply, or transfer entire website to mobile-first web app for touch devices.
 >
 > CardKit building blocks are all _use-html-as-configure-style_ (like Custom Elements, directive...) components built on [DarkDOM](https://github.com/dexteryy/DarkDOM) and [Moui](https://github.com/dexteryy/moui).
 
@@ -36,7 +36,7 @@ title: DarkDOM
 ### AMD and OzJS
 
 * DarkDOM can either be viewed as an independent library, or as a part of [OzJS mirco-framework](http://ozjs.org/#framework).
-* It's wrapped as a number of mutually independent [AMD (Asynchronous Module Definition)](https://github.com/amdjs/amdjs-api/wiki/AMD) modules. You should use them with [oz.js](http://ozjs.org/#start) (or require.js or [similar](http://wiki.commonjs.org/wiki/Implementations) for handling dependencies). 
+* It's wrapped as a number of mutually independent [AMD (Asynchronous Module Definition)](https://github.com/amdjs/amdjs-api/wiki/AMD) modules. You should use them with [oz.js](http://ozjs.org/#start) (or require.js or [similar](http://wiki.commonjs.org/wiki/Implementations) for handling dependencies).
 * If you want to make them available for both other AMD code and traditional code based on global namespace. OzJS provides [a mini define/require implementation](http://ozjs.org/examples/adapter/) to transform AMD module into traditional [module pattern](http://www.adequatelygood.com/2010/3/JavaScript-Module-Pattern-In-Depth).
 * See [http://ozjs.org](http://ozjs.org) for details.
 
@@ -64,15 +64,15 @@ var darkdom = require('darkdom');
 var component = darkdom(options); // see component.set(options)
 ```
 
-* `component.set(options)` -- 
+* `component.set(options)` --
   * options --
-    * `unique: false` -- 
+    * `unique: false` --
     * `enableSource: false` --
     * `entireAsContent: false` --
     * `sourceAsContent: false` --
-    * `render: function(data){ return '<...>...</...>'; }` -- 
+    * `render: function(data){ return '<...>...</...>'; }` --
       * `data.state`
-      * `data.content` 
+      * `data.content`
       * `data.component`
       * `data.context`
 * `component.state(stateName, attrName)` --
@@ -85,7 +85,7 @@ var component = darkdom(options); // see component.set(options)
 * `component.response(updateEvent, function(changes){ ...; return resolved; })` --
   * updateEvent -- "state:name", "component:name", "content", "remove"...
   * changes --
-  * resolved -- 
+  * resolved --
 * `component.component(childComponentName)` --
 * `component.createGuard()` --
 
@@ -129,7 +129,7 @@ guard.watch(root);
 * `root.getDarkState(name)` --
 * `root.setDarkState(name, value, options)` --
   * options --
-    * `update: false` -- 
+    * `update: false` --
 * `root.updateDarkStates()` --
 * `root.updateDarkDOM()` --
 * `root.feedDarkDOM(sourceData)` --
@@ -159,4 +159,3 @@ See [OzJS Release History](http://ozjs.org/#release)
 
 Copyright (c) 2010 - 2014 dexteryy  
 Licensed under the MIT license.
-
